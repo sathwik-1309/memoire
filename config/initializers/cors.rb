@@ -16,7 +16,7 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
   end
 
   # allow do
-  #   origins "http://localhost:4173" # Replace with the origin(s) you want to allow, e.g., 'http://example.com'
+  #   origins "https://websocketking.com" # Replace with the origin(s) you want to allow, e.g., 'http://example.com'
   #   resource '*', headers: :any, methods: [:get, :post, :put, :patch, :delete, :options, :head], credentials: true
   # end
 

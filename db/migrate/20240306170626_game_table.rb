@@ -6,9 +6,10 @@ class GameTable < ActiveRecord::Migration[7.1]
       t.json :used, default: []
       t.json :inplay, default: []
       t.json :play_order, default: []
-      t.string :stage, default: CARD_DRAW
+      t.string :stage, default: START_ACK
       t.integer :turn
       t.integer :current_play
+      t.datetime :timeout
       t.timestamps
     end
   end

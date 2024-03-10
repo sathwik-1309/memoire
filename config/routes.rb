@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  mount ActionCable.server => '/cable'
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
@@ -13,12 +14,15 @@ Rails.application.routes.draw do
   end
 
   scope :games do
+    get '/check' => 'game#check'
     get '/index' => 'game#index'
     get '/:id/details' => 'game#details'
     get '/:id/initial_view' => 'game#initial_view'
+    get '/:id/view_initial' => 'game#view_initial'
     post '/create' => 'game#create'
     get '/online_games' => 'game#online_games'
     get '/:id/user_play' => 'game#user_play'
+    post '/:id/start_ack' => 'game#start_ack'
     put '/:game_id/close_offloads' => 'game#close_offloads'
   end
 

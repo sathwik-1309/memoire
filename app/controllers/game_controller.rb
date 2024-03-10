@@ -66,29 +66,29 @@ class GameController < ApplicationController
     end
   end
 
-  def initial_view
-    if @current_user.nil?
-      render_400("User not authorized") and return
-    end
-    gu = @current_user.game_users.find_by_game_id(params[:id])
-    if gu.nil?
-      render_400("Game not found") and return
-    end
-    @game = gu.game
-    begin
-      if gu.initial_view
-        render_400("alreday viewed") and return
-      end
-      gu.initial_view = true
-      gu.save!
-      render_200(nil,{
-        'card_1' => gu.cards[0],
-        'card_2' => gu.cards[1]
-      })
-    rescue StandardError => ex
-      render_400(ex.message)
-    end
-  end
+  # def initial_view
+  #   if @current_user.nil?
+  #     render_400("User not authorized") and return
+  #   end
+  #   gu = @current_user.game_users.find_by_game_id(params[:id])
+  #   if gu.nil?
+  #     render_400("Game not found") and return
+  #   end
+  #   @game = gu.game
+  #   begin
+  #     if gu.initial_view
+  #       render_400("alreday viewed") and return
+  #     end
+  #     gu.initial_view = true
+  #     gu.save!
+  #     render_200(nil,{
+  #       'card_1' => gu.cards[0],
+  #       'card_2' => gu.cards[1]
+  #     })
+  #   rescue StandardError => ex
+  #     render_400(ex.message)
+  #   end
+  # end
 
   def online_games
     if @current_user.nil?
@@ -111,9 +111,9 @@ class GameController < ApplicationController
     begin
       offloads = game.current_play.offloads
       if offloads.present?
-        game.turn = game.update_turn_from_offload(offloads[-1]['player1_id'])
+        game.turn = game.update_turn_to_next(offloads[-1]['player1_id'])
       else
-        game.turn = game.update_turn_from_offload(game.turn)
+        game.turn = game.update_turn_to_next(game.turn)
       end
       game.stage = CARD_DRAW
       game.save!
@@ -128,6 +128,7 @@ class GameController < ApplicationController
   end
 
   def user_play
+    # if @current_user.id == 
     if @current_user.nil?
       render_400("User not authorized") and return
     end
@@ -136,10 +137,11 @@ class GameController < ApplicationController
       render_400("Game not found") and return
     end
     game = gu.game
-    hash = game.attributes.slice('stage', 'play_order')
+    hash = game.attributes.slice('stage', 'play_order', 'timeout')
+    unless game.started?
+      render_200(nil, hash) and return
+    end
     hash['turn'] = User.find_by_id(game.turn).name
-    hash['your_turn'] = true if game.turn == @current_user.id
-    hash['initial_view'] = gu.initial_view
     hash['last_used'] = game.used[-1]
     if game.stage == CARD_DRAW
       if game.plays.length > 1
@@ -164,14 +166,82 @@ class GameController < ApplicationController
       }
       count += 1
     end
+    if game.turn == @current_user.id
+      play = game.current_play
+      hash['your_turn'] = true
+      case game.stage 
+      when DOR
+        hash['card_drawn'] = play.card_draw['card_drawn']
+      when POWERPLAY
+        play = game.current_play
+        hash['powerplay_type'] = play.powerplay_type
+      end
+    end
     hash['table'] = table
     render_200(nil, hash)
+  end
+
+  def check
+    Thread.new do
+      puts("hello")
+      sleep(5)
+      puts("hi")
+    end
+    render_200("success")
+  end
+
+  def start_ack
+    if @current_user.nil?
+      render_400("User not authorized") and return
+    end
+    gu = @current_user.game_users.find_by_game_id(params[:id])
+    if gu.nil?
+      render_400("Game not found") and return
+    end
+    gu.start_ack = true
+    game = gu.game
+    gu.save!
+    game.save!
+    if game.check_start_ack
+      game.stage = INITIAL_VIEW
+      game.timeout = Time.now.utc + TIMEOUT_IV.seconds
+      game.save!
+      ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": INITIAL_VIEW, "id": 1})
+      Thread.new do
+        sleep(TIMEOUT_IV)
+        game.stage = CARD_DRAW
+        game.timeout = Time.now.utc + TIMEOUT_CD.seconds
+        game.save!
+        ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": CARD_DRAW, "turn": User.find_by_id(game.turn).authentication_token, "id": 2})
+      end
+    end
+    render_200("Waiting for other players to join...")
+  end
+
+  def view_initial
+    if @current_user.nil?
+      render_400("User not authorized") and return
+    end
+    gu = @current_user.game_users.find_by_game_id(params[:id])
+    if gu.nil?
+      render_400("Game not found") and return
+    end
+    if gu.view_count >= 2
+      render_400("Already viewed 2 cards") and return
+    end
+
+    gu.view_count += 1
+    gu.save!
+    render_200(nil,{
+      "card" => gu.cards[filter_params[:card_index].to_i]
+    })
+
   end
 
   private
 
   def filter_params
-    params.permit(:player1, :player2, :player3, :player_id)
+    params.permit(:player1, :player2, :player3, :player_id, :card_index)
   end
 
 end

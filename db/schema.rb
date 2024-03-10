@@ -15,7 +15,8 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_06_180728) do
     t.json "cards", default: []
     t.integer "game_id"
     t.integer "user_id"
-    t.boolean "initial_view", default: false
+    t.integer "view_count", default: 0
+    t.boolean "start_ack", default: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["game_id"], name: "index_game_users_on_game_id"
@@ -28,9 +29,10 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_06_180728) do
     t.json "used", default: []
     t.json "inplay", default: []
     t.json "play_order", default: []
-    t.string "stage", default: "card_draw"
+    t.string "stage", default: "start_ack"
     t.integer "turn"
     t.integer "current_play"
+    t.datetime "timeout"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
@@ -38,9 +40,9 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_06_180728) do
   create_table "plays", force: :cascade do |t|
     t.integer "turn"
     t.boolean "show", default: false
-    t.json "card_draw"
-    t.json "offloads"
-    t.json "powerplay"
+    t.json "card_draw", default: {}
+    t.json "offloads", default: []
+    t.json "powerplay", default: {}
     t.integer "game_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false

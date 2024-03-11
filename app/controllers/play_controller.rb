@@ -181,20 +181,18 @@ class PlayController < ApplicationController
     render_200("Ack")
   end
 
-  def showcards
+  def call_show
     game_users =  @game.game_users
     game_users_with_counts = game_users.map do |game_user|
       cards = game_user.cards
       count = count_cards(cards)
       [game_user, count]
     end
+
+    byebug
     winning_game_user = game_users_with_counts.min_by { |_, count| count }.first
 
-    if winning_game_user
-      render json: winning_game_user_data(winning_game_user), status: :ok
-    else
-      render json: { error: 'GameUser not found' }, status: :not_found
-    end
+    render json: winning_game_user_data(winning_game_user), status: :ok
   end
 
   private

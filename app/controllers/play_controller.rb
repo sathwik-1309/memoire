@@ -68,27 +68,6 @@ class PlayController < ApplicationController
 
     render_400("game stage is #{game.stage}: cannot offload") and return if game.stage != OFFLOADS
 
-    # begin
-<<<<<<< HEAD
-      play = game.current_play
-      offload = filter_params[:offload]
-      gu1 = game.game_users.find_by_user_id(@current_user.id)
-      if offload['type'] == SELF_OFFLOAD
-        offload_card = gu1.cards[offload['offloaded_card_index']]
-        if Util.get_card_value(offload_card)[0] != Util.get_card_value(game.used[-1])[0]
-          new_card = game.pile.pop
-          gu1.cards << new_card
-          game.inplay << new_card
-          game.pile.delete(new_card)
-          offload['is_correct'] = false
-        else
-          gu1.cards[offload['offloaded_card_index']] = nil
-          game.used << offload_card
-          game.inplay.delete(offload_card)
-          offload['is_correct'] = true
-        end
-        gu1.save!
-=======
     play = game.current_play
     offload = filter_params[:offload]
     gu1 = game.game_users.find_by_user_id(@current_user.id)
@@ -100,7 +79,6 @@ class PlayController < ApplicationController
         game.inplay << new_card
         game.pile.delete(new_card)
         offload['is_correct'] = false
->>>>>>> 714a765 (add show endpoint)
       else
         gu1.cards[offload['offloaded_card_index']] = nil
         game.used << offload_card

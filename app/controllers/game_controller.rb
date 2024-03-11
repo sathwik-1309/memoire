@@ -181,15 +181,6 @@ class GameController < ApplicationController
     render_200(nil, hash)
   end
 
-  def check
-    Thread.new do
-      puts("hello")
-      sleep(5)
-      puts("hi")
-    end
-    render_200("success")
-  end
-
   def start_ack
     if @current_user.nil?
       render_400("User not authorized") and return

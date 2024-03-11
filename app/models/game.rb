@@ -23,7 +23,7 @@ class Game < ApplicationRecord
 
   def card_draw_follow_up
     TIMEOUT_CD.times do
-      return if self.stage != CARD_DRAW
+      return if self.reload.stage != CARD_DRAW
       sleep(1)
     end
     self.turn = self.next_turn_player_id(self.turn)
@@ -35,20 +35,17 @@ class Game < ApplicationRecord
 
   def dor_follow_up
     TIMEOUT_DOR.times do
-      return unless self.stage == DOR
+      return unless self.reload.stage == DOR
       sleep(1)
     end
-    game_controller = GameController.new
-    params = { game_id: self.id, event: { type: DISCARD } }
-    current_user = self.turn
-    game_controller.instance_variable_set(:@current_user, current_user)
-    game_controller.discard_or_replace
-    ActionCable.server.broadcast(self.channel, {"timeout": self.timeout, "stage": self.stage, "id": 10})
+    event = {}
+    event['type'] = DISCARD
+    self.create_discard_or_replace(User.find_by_id(self.turn), event)
   end
 
   def powerplay_follow_up
     TIMEOUT_PP.times do
-      return unless self.stage == POWERPLAY
+      return unless self.relaod.stage == POWERPLAY
       sleep(1)
     end
     self.stage = OFFLOADS
@@ -118,5 +115,41 @@ class Game < ApplicationRecord
 
   def current_play
     return self.plays.last
+  end
+
+  def create_discard_or_replace(user, event)
+    play = self.current_play
+    new_card = play.card_draw['card_drawn']
+    if event['type'] == DISCARD
+      play.card_draw['discarded_card'] = new_card
+      discarded_card = new_card
+    else
+      gu = self.game_users.find_by_user_id(user.id)
+      discarded_card = gu.cards[event['discarded_card_index']]
+      gu.cards[event['discarded_card_index']] = new_card
+      gu.save!
+      play.card_draw['discarded_card'] = discarded_card
+      play.card_draw['replaced_card'] = new_card
+      self.inplay.delete(discarded_card)
+      self.inplay << new_card
+    end
+    self.used << discarded_card
+    play.card_draw['event'] = event['type']
+    if play.is_powerplay?
+      self.stage = POWERPLAY
+      self.timeout = Time.now.utc + TIMEOUT_PP.seconds
+    else
+      self.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
+      self.stage = OFFLOADS
+    end
+    self.save!
+    play.save!
+    ActionCable.server.broadcast(self.channel, {"timeout": self.timeout, "stage": self.stage, "turn": user.authentication_token, "id": 4})
+    hash = {
+      'discarded_card' => discarded_card,
+      'timeout' => self.timeout,
+      'stage' => self.stage
+    }
+    return hash
   end
 end

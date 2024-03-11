@@ -7,7 +7,8 @@ class UserController < ApplicationController
       arr << {
         "name" => user.name,
         "username" => user.username,
-        "id" => user.id
+        "id" => user.id,
+        "auth_token" => user.authentication_token
       }
     end
     render(:json => arr)

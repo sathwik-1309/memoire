@@ -149,15 +149,15 @@ class PlayController < ApplicationController
     powerplay = filter_params[:powerplay]
 
     if (!play.is_powerplay?)
-      render_400("Is not a powerplay")
+      render_400("Is not a powerplay") and return
     end
 
     if (play.powerplay_type != powerplay['event'])
-      render_400("Powerplay type not same")
+      render_400("Powerplay type not same") and return
     end
 
     if play.powerplay and play.powerplay['used']
-      render_400("Powerplay used for this play")
+      render_400("Powerplay used for this play") and return
     end
     
     play.powerplay = powerplay
@@ -166,8 +166,8 @@ class PlayController < ApplicationController
     play.save!
 
     if powerplay['event'] == SWAP_CARDS
-      gu1 = game.game_users.find_by_user_id(@current_user.id)
-      gu2 = game.game_users.find_by_user_id(powerplay['player_id'])
+      gu1 = game.game_users.find_by_user_id(powerplay['player1_id'])
+      gu2 = game.game_users.find_by_user_id(powerplay['player2_id'])
       replace_card1 = gu1.cards[powerplay['card1_index']]
       replace_card2 = gu2.cards[powerplay['card2_index']]
       gu1.cards[powerplay['card1_index']] = replace_card2

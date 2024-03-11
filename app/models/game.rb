@@ -45,7 +45,7 @@ class Game < ApplicationRecord
 
   def powerplay_follow_up
     TIMEOUT_PP.times do
-      return unless self.relaod.stage == POWERPLAY
+      return unless self.reload.stage == POWERPLAY
       sleep(1)
     end
     self.stage = OFFLOADS

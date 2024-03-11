@@ -16,7 +16,7 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_06_180728) do
     t.integer "game_id"
     t.integer "user_id"
     t.integer "view_count", default: 0
-    t.boolean "start_ack", default: false
+    t.boolean "start_ack", default: true
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["game_id"], name: "index_game_users_on_game_id"

@@ -83,7 +83,7 @@ class PlayController < ApplicationController
       play = game.current_play
       offload = filter_params[:offload]
       gu1 = game.game_users.find_by_user_id(@current_user.id)
-      if offload['type'] = SELF_OFFLOAD
+      if offload['type'] == SELF_OFFLOAD
         offload_card = gu1.cards[offload['offloaded_card_index']]
         if Util.get_card_value(offload_card)[0] != Util.get_card_value(game.used[-1])[0]
           new_card = game.pile.pop
@@ -144,52 +144,82 @@ class PlayController < ApplicationController
     if game.stage != POWERPLAY
       render_400("game stage is #{game.stage}: cannot exercise powerplay") and return
     end
+    
+    play = game.current_play
+    powerplay = filter_params[:powerplay]
 
-    begin
-      play = game.current_play
-      powerplay = filter_params[:powerplay]
-      play.powerplay = powerplay
-      game.stage = OFFLOADS
-      play.save!
-
-      if powerplay['event'] == SWAP_CARDS
-        gu1 = game.game_users.find_by_user_id(@current_user.id)
-        gu2 = game.game_users.find_by_user_id(powerplay['player_id'])
-        replace_card1 = gu1.cards[powerplay['card1_index']]
-        replace_card2 = gu2.cards[powerplay['card2_index']]
-        gu1.cards[powerplay['card1_index']] = replace_card2
-        gu2.cards[powerplay['card2_index']] = replace_card1
-        gu1.save!
-        gu2.save!
-        game.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
-        game.save!
-        ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": @current_user.authentication_token, "id": 6})
-        render_200("swapped cards successfully", {'timeout'=> game.timeout}) and return 
-      elsif powerplay['event'] == VIEW_SELF
-        gu1 = game.game_users.find_by_user_id(game.turn)
-        view_card = gu1.cards[powerplay['view_card_index']]
-        game.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
-        game.save!
-        ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": @current_user.authentication_token, "id": 7})
-        render_200(nil, {
-          'card' => view_card,
-          'timeout' => game.timeout
-        }) and return
-      else
-        gu2 = game.game_users.find_by_user_id(powerplay['player_id'])
-        view_card = gu2.cards[powerplay['view_card_index']]
-        game.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
-        game.save!
-        ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": @current_user.authentication_token, "id": 8})
-        render_200(nil, {
-          'card' => view_card,
-          'timeout' => game.timeout
-        }) and return
-      end
-      
-    rescue StandardError => ex
-      render_400(ex.message)
+    if (!play.is_powerplay?)
+      render_400("Is not a powerplay")
     end
+
+    if (play.powerplay_type != powerplay['event'])
+      render_400("Powerplay type not same")
+    end
+
+    if play.powerplay and play.powerplay['used']
+      render_400("Powerplay used for this play")
+    end
+    
+    play.powerplay = powerplay
+    play.powerplay['used'] = true
+    # game.stage = OFFLOADS
+    play.save!
+
+    if powerplay['event'] == SWAP_CARDS
+      gu1 = game.game_users.find_by_user_id(@current_user.id)
+      gu2 = game.game_users.find_by_user_id(powerplay['player_id'])
+      replace_card1 = gu1.cards[powerplay['card1_index']]
+      replace_card2 = gu2.cards[powerplay['card2_index']]
+      gu1.cards[powerplay['card1_index']] = replace_card2
+      gu2.cards[powerplay['card2_index']] = replace_card1
+      gu1.save!
+      gu2.save!
+      game.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
+      game.save!
+      # ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": @current_user.authentication_token, "id": 6})
+      render_200("swapped cards successfully", {'timeout'=> game.timeout}) and return 
+    elsif powerplay['event'] == VIEW_SELF
+      gu1 = game.game_users.find_by_user_id(game.turn)
+      view_card = gu1.cards[powerplay['view_card_index']]
+      game.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
+      game.save!
+      # ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": @current_user.authentication_token, "id": 7})
+      render_200(nil, {
+        'card' => view_card,
+        'timeout' => game.timeout
+      }) and return
+    else
+      gu2 = game.game_users.find_by_user_id(powerplay['player_id'])
+      view_card = gu2.cards[powerplay['view_card_index']]
+      game.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
+      game.save!
+      # ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": @current_user.authentication_token, "id": 8})
+      render_200(nil, {
+        'card' => view_card,
+        'timeout' => game.timeout
+      }) and return
+    end
+  
+  end
+
+  def close_powerplay
+    game =  @current_user.games.find{|game| game.id == params[:game_id].to_i}
+    if game.nil?
+      render_404("game not found") and return
+    end
+
+    if game.turn != @current_user.id
+      render_400("Incorrect player turn") and return
+    end
+
+    if game.stage != POWERPLAY
+      render_400("game stage is #{game.stage}: cannot exercise powerplay") and return
+    end
+
+    game.stage = OFFLOADS
+    game.save!
+    ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": @current_user.authentication_token, "id": 7})
+    render_200("Ack")
   end
 
   private

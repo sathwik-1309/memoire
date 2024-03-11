@@ -181,6 +181,7 @@ class GameController < ApplicationController
     render_200(nil, hash)
   end
 
+
   def start_ack
     if @current_user.nil?
       render_400("User not authorized") and return

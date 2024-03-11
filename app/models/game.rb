@@ -55,6 +55,7 @@ class Game < ApplicationRecord
   end
 
   def offloads_follow_up
+    # byebug
     sleep(TIMEOUT_OFFLOAD)
     self.stage = CARD_DRAW
     self.turn = self.next_turn_player_id(self.turn)

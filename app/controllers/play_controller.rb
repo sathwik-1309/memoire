@@ -211,7 +211,7 @@ class PlayController < ApplicationController
   end
 
   def showcards
-    game_users = GameUser.where(game_id: @game.id)
+    game_users = @current_user.game_users.find_by_game_id(@game.id).game.game_users
     game_users_with_counts = game_users.map do |game_user|
       cards = game_user.cards
       count = count_cards(cards)
@@ -258,7 +258,7 @@ class PlayController < ApplicationController
   end
 
   def check_cards
-    return unless GameUser.find_by(user_id: @current_user.id).cards.length == 4
+    return unless @current_user.game_users.find_by_game_id(@game.id).cards.length == 4
 
     render json: { error: 'Can only be triggered if you have cards <4 or >4' }, status: :bad_request
   end

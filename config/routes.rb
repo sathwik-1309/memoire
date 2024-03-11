@@ -33,6 +33,7 @@ Rails.application.routes.draw do
     put '/:game_id/create_offloads' => 'play#create_offloads'
     put '/:game_id/create_powerplay' => 'play#create_powerplay'
     post '/:game_id/close_powerplay' => 'play#close_powerplay'
+    get '/:game_id/showcards' => 'play#showcards'
   end
 
 

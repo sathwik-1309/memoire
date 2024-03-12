@@ -16,7 +16,8 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_06_180728) do
     t.integer "game_id"
     t.integer "user_id"
     t.integer "view_count", default: 0
-    t.boolean "start_ack", default: true
+    t.string "status", default: "start_ack"
+    t.integer "points", default: 0
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["game_id"], name: "index_game_users_on_game_id"
@@ -24,7 +25,7 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_06_180728) do
   end
 
   create_table "games", force: :cascade do |t|
-    t.string "status", null: false
+    t.string "status", default: "new"
     t.json "pile", default: []
     t.json "used", default: []
     t.json "inplay", default: []
@@ -33,6 +34,7 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_06_180728) do
     t.integer "turn"
     t.integer "current_play"
     t.datetime "timeout"
+    t.json "meta", default: {}
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end

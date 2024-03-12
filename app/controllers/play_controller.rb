@@ -1,6 +1,9 @@
 class PlayController < ApplicationController
   before_action :check_current_user
-  
+  before_action :set_game, only: [:showcards]
+  before_action :check_turn, only: [:showcards]
+  before_action :check_cards, only: [:showcards]
+
   def index
     game = @current_user.games.find{|game| game.id == params[:game_id].to_i}
     if game.nil?
@@ -45,7 +48,7 @@ class PlayController < ApplicationController
         'timeout' => game.timeout,
         'stage' => game.stage
       })
-      
+
     rescue StandardError => ex
       render_400(ex.message)
     end
@@ -144,7 +147,7 @@ class PlayController < ApplicationController
     if game.stage != POWERPLAY
       render_400("game stage is #{game.stage}: cannot exercise powerplay") and return
     end
-    
+
     play = game.current_play
     powerplay = filter_params[:powerplay]
 
@@ -159,7 +162,7 @@ class PlayController < ApplicationController
     if play.powerplay and play.powerplay['used']
       render_400("Powerplay used for this play") and return
     end
-    
+
     play.powerplay = powerplay
     play.powerplay['used'] = true
     # game.stage = OFFLOADS
@@ -177,7 +180,7 @@ class PlayController < ApplicationController
       game.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
       game.save!
       # ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": @current_user.authentication_token, "id": 6})
-      render_200("swapped cards successfully", {'timeout'=> game.timeout}) and return 
+      render_200("swapped cards successfully", {'timeout'=> game.timeout}) and return
     elsif powerplay['event'] == VIEW_SELF
       gu1 = game.game_users.find_by_user_id(game.turn)
       view_card = gu1.cards[powerplay['view_card_index']]
@@ -199,7 +202,7 @@ class PlayController < ApplicationController
         'timeout' => game.timeout
       }) and return
     end
-  
+
   end
 
   def close_powerplay
@@ -222,7 +225,43 @@ class PlayController < ApplicationController
     render_200("Ack")
   end
 
+  def showcards
+    game_users = @game.game_users
+    game_users.each do |game_user|
+      game_user.points += game_user.count_cards
+      game_user.status = GAME_USER_FINISHED
+      game_user.save!
+    end
+    @game.status = FINISHED
+    @game.stage = FINISHED
+    @game.meta['game_users_sorted'] = @game.game_users_sorted.map{|gu| gu.user_id}
+    @game.meta['show_called_by'] = {
+      'player_id' => @current_user.id,
+      'name' => @current_user.name
+    }
+    @game.timeout = nil
+    @game.save!
+    puts "---------"
+    puts @game.status
+    puts "---------"
+    ActionCable.server.broadcast(@game.channel, {"stage": FINISHED, "id": 10})
+    render_200("Game is in finished state")
+  end
   private
+
+  def set_game
+    @game = @current_user.games.find { |game| game.id == params[:game_id].to_i }
+  end
+
+  def check_turn
+    return unless @current_user.id != @game.turn
+    render_400("Can only be triggered on your turn") and return
+  end
+
+  def check_cards
+    return if GameUser.find_by(game_id: @game.id, user_id: @current_user.id).cards.filter{|card| card.present?}.length < 4
+    render_400("Cannot call show when you have 4 or more cards") and return
+  end
 
   def filter_params
     params.permit(:game_id, :turn, :show, :player, event: {} , offload: {}, powerplay: {})

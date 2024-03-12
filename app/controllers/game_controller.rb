@@ -128,7 +128,6 @@ class GameController < ApplicationController
   end
 
   def user_play
-    # if @current_user.id == 
     if @current_user.nil?
       render_400("User not authorized") and return
     end
@@ -136,11 +135,20 @@ class GameController < ApplicationController
     if gu.nil?
       render_400("Game not found") and return
     end
+
     game = gu.game
+    render_400("Game is dead") and return if game.dead?
+
     hash = game.attributes.slice('stage', 'play_order', 'timeout')
     unless game.started?
+      hash['game_user_status'] = gu.status
       render_200(nil, hash) and return
     end
+
+    if game.finished?
+      hash['show_called_by'] = game.meta['show_called_by']
+    end
+
     hash['turn'] = User.find_by_id(game.turn).name
     hash['last_used'] = game.used[-1]
     if game.stage == CARD_DRAW
@@ -159,13 +167,22 @@ class GameController < ApplicationController
     game_users = game.game_users
     while count < total_players
       gu = game_users.find{|gu1| gu1.user_id == game.play_order[(index+count)%total_players]}
-      table << {
-        'player_id' => gu.user_id,
-        'name' => gu.user.name,
-        'cards' => gu.cards.map{|card| card.present? ? 1 : 0}
-      }
+      temp = {}
+      temp['player_id'] = gu.user_id
+      temp['name'] = gu.user.name
+      temp['user_status'] = gu.status
+      if game.finished?
+        temp['cards'] = gu.cards
+        temp['finished_at'] = game.meta['game_users_sorted'].index(gu.user_id) + 1
+        temp['points'] = gu.points
+      else
+        temp['cards'] = gu.cards.map{|card| card.present? ? 1 : 0}
+      end
       count += 1
+      table << temp
     end
+    render_200("Game is finished", hash) and return if game.stage == FINISHED
+
     if game.turn == @current_user.id
       play = game.current_play
       hash['your_turn'] = true
@@ -190,12 +207,16 @@ class GameController < ApplicationController
     if gu.nil?
       render_400("Game not found") and return
     end
-    gu.start_ack = true
+
+    gu.status = GAME_USER_WAITING_TO_JOIN
     game = gu.game
     gu.save!
-    game.save!
     if game.check_start_ack
       game.stage = INITIAL_VIEW
+      game.game_users.each do |gu|
+        gu.status = GAME_USER_IS_PLAYING
+        gu.save!
+      end
       game.timeout = Time.now.utc + TIMEOUT_IV.seconds
       game.save!
       ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": INITIAL_VIEW, "id": 1})

@@ -23,7 +23,7 @@ class Game < ApplicationRecord
 
   def card_draw_follow_up
     TIMEOUT_CD.times do
-      return if self.reload.stage != CARD_DRAW
+      return if self.reload.status != ONGOING or self.stage != CARD_DRAW
       sleep(1)
     end
     self.turn = self.next_turn_player_id(self.turn)
@@ -35,7 +35,7 @@ class Game < ApplicationRecord
 
   def dor_follow_up
     TIMEOUT_DOR.times do
-      return unless self.reload.stage == DOR
+      return if self.reload.status != ONGOING or self.stage != DOR
       sleep(1)
     end
     event = {}
@@ -45,7 +45,7 @@ class Game < ApplicationRecord
 
   def powerplay_follow_up
     TIMEOUT_PP.times do
-      return unless self.reload.stage == POWERPLAY
+      return if self.reload.status != ONGOING or self.stage != POWERPLAY
       sleep(1)
     end
     self.stage = OFFLOADS
@@ -57,6 +57,7 @@ class Game < ApplicationRecord
   def offloads_follow_up
     # byebug
     sleep(TIMEOUT_OFFLOAD)
+    return if self.reload.status != ONGOING
     self.stage = CARD_DRAW
     self.turn = self.next_turn_player_id(self.turn)
     self.timeout = Time.now.utc + TIMEOUT_CD.seconds
@@ -82,8 +83,20 @@ class Game < ApplicationRecord
     self.stage != START_ACK
   end
 
+  def finished?
+    self.status == FINISHED
+  end
+
+  def dead?
+    self.status == DEAD
+  end
+
   def check_start_ack
-    return !self.game_users.find{|gu| gu.start_ack == false}.present?
+    return !self.game_users.find{|gu| gu.status != GAME_USER_WAITING_TO_JOIN}.present?
+  end
+
+  def game_users_sorted
+    self.game_users.order(points: :asc)
   end
 
   def self.random_shuffle(cards)

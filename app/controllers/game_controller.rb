@@ -128,7 +128,6 @@ class GameController < ApplicationController
   end
 
   def user_play
-    # if @current_user.id == 
     if @current_user.nil?
       render_400("User not authorized") and return
     end
@@ -148,7 +147,6 @@ class GameController < ApplicationController
 
     if game.finished?
       hash['show_called_by'] = game.meta['show_called_by']
-      hash['show_cards'] = show_cards
     end
 
     hash['turn'] = User.find_by_id(game.turn).name
@@ -172,15 +170,19 @@ class GameController < ApplicationController
       temp = {}
       temp['player_id'] = gu.user_id
       temp['name'] = gu.user.name
+      temp['user_status'] = gu.status
       if game.finished?
         temp['cards'] = gu.cards
         temp['finished_at'] = game.meta['game_users_sorted'].index(gu.user_id) + 1
+        temp['points'] = gu.points
       else
-        temp['cards'] gu.cards.map{|card| card.present? ? 1 : 0}
+        temp['cards'] = gu.cards.map{|card| card.present? ? 1 : 0}
       end
       count += 1
       table << temp
     end
+    render_200("Game is finished", hash) and return if game.stage == FINISHED
+
     if game.turn == @current_user.id
       play = game.current_play
       hash['your_turn'] = true

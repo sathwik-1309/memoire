@@ -233,6 +233,7 @@ class PlayController < ApplicationController
       game_user.save!
     end
     @game.status = FINISHED
+    @game.stage = FINISHED
     @game.meta['game_users_sorted'] = @game.game_users_sorted.map{|gu| gu.user_id}
     @game.meta['show_called_by'] = {
       'player_id' => @current_user.id,
@@ -240,6 +241,9 @@ class PlayController < ApplicationController
     }
     @game.timeout = nil
     @game.save!
+    puts "---------"
+    puts @game.status
+    puts "---------"
     ActionCable.server.broadcast(@game.channel, {"stage": FINISHED, "id": 10})
     render_200("Game is in finished state")
   end
@@ -251,14 +255,12 @@ class PlayController < ApplicationController
 
   def check_turn
     return unless @current_user.id != @game.turn
-
-    render json: { error: 'Can only be triggered on your turn' }, status: :bad_request
+    render_400("Can only be triggered on your turn") and return
   end
 
   def check_cards
-    return unless @game.game_users.find_by_user_id(@current_user.id).cards.length == 4
-
-    render json: { error: 'Can only be triggered if you have cards <4 or >4' }, status: :bad_request
+    return if GameUser.find_by(game_id: @game.id, user_id: @current_user.id).cards.filter{|card| card.present?}.length < 4
+    render_400("Cannot call show when you have 4 or more cards") and return
   end
 
   def filter_params

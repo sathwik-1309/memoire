@@ -233,7 +233,11 @@ class PlayController < ApplicationController
       game_user.save!
     end
     @game.status = FINISHED
-    @game.meta['show_called_by'] = @current_user.id
+    @game.meta['game_users_sorted'] = @game.game_users_sorted.map{|gu| gu.user_id}
+    @game.meta['show_called_by'] = {
+      'player_id' => @current_user.id,
+      'name' => @current_user.name
+    }
     @game.timeout = nil
     @game.save!
     ActionCable.server.broadcast(@game.channel, {"stage": FINISHED, "id": 10})
@@ -257,13 +261,6 @@ class PlayController < ApplicationController
     render json: { error: 'Can only be triggered if you have cards <4 or >4' }, status: :bad_request
   end
 
-  def winning_game_user_data(winning_game_user)
-    {
-      'game_id' => winning_game_user.game_id,
-      'cards' => winning_game_user.cards,
-      'winning_user' => winning_game_user.user_id
-    }
-  end
   def filter_params
     params.permit(:game_id, :turn, :show, :player, event: {} , offload: {}, powerplay: {})
   end

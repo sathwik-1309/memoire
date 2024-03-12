@@ -147,21 +147,8 @@ class GameController < ApplicationController
     end
 
     if game.finished?
-      show_cards = {}
-      game.game_users.order_by(asc: :points).each do |gu|
-        show_cards << {
-          'player_id' => gu.user_id,
-          'name' => gu.user.name,
-          'points' => gu.points
-        }
-      end
-      player = User.find_by_id(game.meta['show_called_by'])
-      hash['show_called_by'] = {
-        'player_id' => player.id,
-        'name' => player.name
-      }
+      hash['show_called_by'] = game.meta['show_called_by']
       hash['show_cards'] = show_cards
-      render_200(nil, hash) and return
     end
 
     hash['turn'] = User.find_by_id(game.turn).name
@@ -182,12 +169,17 @@ class GameController < ApplicationController
     game_users = game.game_users
     while count < total_players
       gu = game_users.find{|gu1| gu1.user_id == game.play_order[(index+count)%total_players]}
-      table << {
-        'player_id' => gu.user_id,
-        'name' => gu.user.name,
-        'cards' => gu.cards.map{|card| card.present? ? 1 : 0}
-      }
+      temp = {}
+      temp['player_id'] = gu.user_id
+      temp['name'] = gu.user.name
+      if game.finished?
+        temp['cards'] = gu.cards
+        temp['finished_at'] = game.meta['game_users_sorted'].index(gu.user_id) + 1
+      else
+        temp['cards'] gu.cards.map{|card| card.present? ? 1 : 0}
+      end
       count += 1
+      table << temp
     end
     if game.turn == @current_user.id
       play = game.current_play

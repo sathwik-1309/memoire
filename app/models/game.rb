@@ -94,6 +94,10 @@ class Game < ApplicationRecord
     return !self.game_users.find{|gu| gu.status != GAME_USER_WAITING_TO_JOIN}.present?
   end
 
+  def game_users_sorted
+    self.game_users.order(points: :asc)
+  end
+
   def self.random_shuffle(cards)
     return cards.shuffle
   end

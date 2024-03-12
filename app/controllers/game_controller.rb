@@ -181,6 +181,7 @@ class GameController < ApplicationController
       count += 1
       table << temp
     end
+    hash['table'] = table
     render_200("Game is finished", hash) and return if game.stage == FINISHED
 
     if game.turn == @current_user.id
@@ -194,7 +195,6 @@ class GameController < ApplicationController
         hash['powerplay_type'] = play.powerplay_type
       end
     end
-    hash['table'] = table
     render_200(nil, hash)
   end
 

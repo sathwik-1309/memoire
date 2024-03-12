@@ -226,19 +226,19 @@ class PlayController < ApplicationController
   end
 
   def showcards
-    game_users = @current_user.game_users.find_by_game_id(@game.id).game.game_users
-    game_users_with_counts = game_users.map do |game_user|
-      cards = game_user.cards
-      count = count_cards(cards)
-      [game_user, count]
+    game_users = @game.game_users
+    game_users.each do |game_user|
+      game_user.points += game_user.count_cards
+      game_user.status = GAME_USER_FINISHED
+      game_user.save!
     end
-    winning_game_user = game_users_with_counts.min_by { |_, count| count }.first
-
-    if winning_game_user
-      render json: winning_game_user_data(winning_game_user), status: :ok
-    else
-      render json: { error: 'GameUser not found' }, status: :not_found
-    end
+    @game.status = FINISHED
+    @game.meta['show_called_by'] = @current_user.id
+    @game.timeout = nil
+    @game.save!
+    ActionCable.server.broadcast(@game.channel, {"stage": FINISHED, "id": 10})
+    render_200("Game is in finished state")
+  end
   private
 
   def set_game
@@ -252,15 +252,9 @@ class PlayController < ApplicationController
   end
 
   def check_cards
-    return unless @current_user.game_users.find_by_game_id(@game.id).cards.length == 4
+    return unless @game.game_users.find_by_user_id(@current_user.id).cards.length == 4
 
     render json: { error: 'Can only be triggered if you have cards <4 or >4' }, status: :bad_request
-  end
-
-  def count_cards(cards)
-    cards.map do |card|
-      card.split.first == 'K' && card.split.last == '♦' ? 0 : VALUES.index(card.split.first) + 1
-    end.sum
   end
 
   def winning_game_user_data(winning_game_user)

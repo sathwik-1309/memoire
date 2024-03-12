@@ -136,11 +136,34 @@ class GameController < ApplicationController
     if gu.nil?
       render_400("Game not found") and return
     end
+
     game = gu.game
+    render_400("Game is dead") and return if game.dead?
+
     hash = game.attributes.slice('stage', 'play_order', 'timeout')
     unless game.started?
+      hash['game_user_status'] = gu.status
       render_200(nil, hash) and return
     end
+
+    if game.finished?
+      show_cards = {}
+      game.game_users.order_by(asc: :points).each do |gu|
+        show_cards << {
+          'player_id' => gu.user_id,
+          'name' => gu.user.name,
+          'points' => gu.points
+        }
+      end
+      player = User.find_by_id(game.meta['show_called_by'])
+      hash['show_called_by'] = {
+        'player_id' => player.id,
+        'name' => player.name
+      }
+      hash['show_cards'] = show_cards
+      render_200(nil, hash) and return
+    end
+
     hash['turn'] = User.find_by_id(game.turn).name
     hash['last_used'] = game.used[-1]
     if game.stage == CARD_DRAW
@@ -190,12 +213,16 @@ class GameController < ApplicationController
     if gu.nil?
       render_400("Game not found") and return
     end
-    gu.start_ack = true
+
+    gu.status = GAME_USER_WAITING_TO_JOIN
     game = gu.game
     gu.save!
-    game.save!
     if game.check_start_ack
       game.stage = INITIAL_VIEW
+      game.game_users.each do |gu|
+        gu.status = GAME_USER_IS_PLAYING
+        gu.save!
+      end
       game.timeout = Time.now.utc + TIMEOUT_IV.seconds
       game.save!
       ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": INITIAL_VIEW, "id": 1})

@@ -5,7 +5,8 @@ class GameUsersTable < ActiveRecord::Migration[7.1]
       t.belongs_to :game
       t.belongs_to :user
       t.integer :view_count, default: 0
-      t.boolean :start_ack, default: true
+      t.string :status, default: GAME_USER_START_ACK
+      t.integer :points, default: 0
       t.timestamps
     end
   end

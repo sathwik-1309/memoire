@@ -1,7 +1,7 @@
 class GameTable < ActiveRecord::Migration[7.1]
   def change
     create_table :games do |t|
-      t.string :status, null: false
+      t.string :status, default: NEW
       t.json :pile, default: []
       t.json :used, default: []
       t.json :inplay, default: []
@@ -10,6 +10,7 @@ class GameTable < ActiveRecord::Migration[7.1]
       t.integer :turn
       t.integer :current_play
       t.datetime :timeout
+      t.json :meta, default: {}
       t.timestamps
     end
   end

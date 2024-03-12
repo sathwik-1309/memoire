@@ -82,8 +82,16 @@ class Game < ApplicationRecord
     self.stage != START_ACK
   end
 
+  def finished?
+    self.stage == FINISHED
+  end
+
+  def dead?
+    self.stage == DEAD
+  end
+
   def check_start_ack
-    return !self.game_users.find{|gu| gu.start_ack == false}.present?
+    return !self.game_users.find{|gu| gu.status != GAME_USER_WAITING_TO_JOIN}.present?
   end
 
   def self.random_shuffle(cards)

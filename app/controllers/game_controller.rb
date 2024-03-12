@@ -22,11 +22,12 @@ class GameController < ApplicationController
   end
 
   def create
-    players = User.where(id: [filter_params[:player1], filter_params[:player2], filter_params[:player3]])
+    players = User.where(id: filter_params[:player_ids])
     
-    if players.length != 3
-      render_400("Player/Players dont exist, game needs 3 players") and return
+    if players.length < 3 or players.length > 4
+      render_400("Game allows 3-4 players only") and return
     end
+
     @game = Game.new
     @game.status = ONGOING
     @game.pile = Game.new_pile
@@ -254,7 +255,7 @@ class GameController < ApplicationController
   private
 
   def filter_params
-    params.permit(:player1, :player2, :player3, :player_id, :card_index)
+    params.permit(:player_id, :card_index, player_ids: [])
   end
 
 end

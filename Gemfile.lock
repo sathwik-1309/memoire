@@ -147,6 +147,8 @@ GEM
       racc (~> 1.4)
     nokogiri (1.15.5-x86_64-linux)
       racc (~> 1.4)
+    oj (3.16.3)
+      bigdecimal (>= 3.0)
     parallel (1.24.0)
     parallel_tests (2.9.0)
       parallel
@@ -273,6 +275,7 @@ DEPENDENCIES
   factory_bot_rails
   importmap-rails
   jbuilder
+  oj
   parallel_tests (~> 2.9.0)
   pry-byebug
   puma (>= 5.0)

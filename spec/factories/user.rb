@@ -2,9 +2,9 @@
 
 FactoryBot.define do
   factory :user do
-    name { 'Test User' }
+    sequence(:name) { |n| "Test User #{n}" }
     authentication_token { 'token' }
-    username { 'testuser' }
+    sequence(:username) { |n| "Test User #{n}" }
     password { 'password' }
   end
 end

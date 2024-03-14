@@ -3,22 +3,14 @@ class GameController < ApplicationController
 
   def index
     arr = []
+    byebug
     if @current_user.present?
       games = current_user.game_users.map{|gu| gu.game}.filter{|game| game.status == ONGOING}
     else
       games = Game.all
     end
-    
-    games.each do |game|
-      arr << {
-        "id" => game.id,
-        "status" => game.status,
-        # "inplay" => game.inplay,
-        # "pile" => game.pile,
-        # "used" => game.used,
-      }
-    end
-    render(:json => arr)
+    games = games.map{|game| game.attributes.slice('id', 'status') }
+    render_200(nil, {'games' => games})
   end
 
   def create

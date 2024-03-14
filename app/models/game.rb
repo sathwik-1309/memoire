@@ -105,7 +105,7 @@ class Game < ApplicationRecord
   end
 
   def check_start_ack
-    return !self.game_users.find{|gu| gu.status != GAME_USER_WAITING_TO_JOIN}.present?
+    return !self.game_users.find{|gu| gu.status != GAME_USER_WAITING}.present?
   end
 
   def game_users_sorted
@@ -127,6 +127,10 @@ class Game < ApplicationRecord
       gu = GameUser.new
       gu.user_id = player.id
       gu.game_id = self.id
+      if player.is_bot
+        gu.is_bot = true 
+        gu.status = GAME_USER_WAITING
+      end
       cards = pile[..3]
       inplay += cards
       gu.cards = cards

@@ -15,8 +15,32 @@ class GameController < ApplicationController
   end
 
   def create
-    players = User.where(id: filter_params[:player_ids]).shuffle
+    players = User.where(id: filter_params[:player_ids])
+    if players.length < 3
+      bots = Util.pick_n_random_items(User.get_bots, 3-players.length)
+      players += bots
+    end
 
+    @game = Game.new
+    @game.status = START_ACK
+    @game.pile = Game.new_pile
+    players = User.random_shuffle(players)
+    @game.play_order = players.map{|player| player.id}
+    @game.turn = @game.play_order[0]
+    begin
+      @game.save!
+      @game.create_game_users(players)
+      render_200("game created", {
+        "id": @game.id,
+        "players": players.map{|player| {'id'=> player.id, 'name'=>player.name} }
+      })
+    rescue StandardError => ex
+      render_400(ex.message)
+    end
+  end
+
+  def multiplayer_create
+    players = User.where(id: filter_params[:player_ids]).shuffle
     if players.count.between?(3, 4)
       @game = Game.create!(status: ONGOING, pile: Game.new_pile, play_order: players.pluck(:id), turn: players.first.id)
       @game.create_game_users(players)
@@ -24,8 +48,6 @@ class GameController < ApplicationController
     else
       render json: { error: "Game allows 3-4 players only" }, status: :bad_request
     end
-  rescue StandardError => ex
-    render json: { error: ex.message }, status: :bad_request
   end
 
   def details
@@ -142,11 +164,12 @@ class GameController < ApplicationController
       render_400("Game not found") and return
     end
 
-    gu.status = GAME_USER_WAITING_TO_JOIN
+    gu.status = GAME_USER_WAITING
     game = gu.game
     gu.save!
     if game.check_start_ack
       game.stage = INITIAL_VIEW
+      game.status = ONGOING
       game.game_users.each do |gu|
         gu.status = GAME_USER_IS_PLAYING
         gu.save!

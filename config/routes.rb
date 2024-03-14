@@ -18,6 +18,7 @@ Rails.application.routes.draw do
     get '/index' => 'game#index'
     get '/:id/details' => 'game#details'
     get '/:id/view_initial' => 'game#view_initial'
+    post '/multiplayer_create' => 'game#multiplayer_create'
     post '/create' => 'game#create'
     # get '/online_games' => 'game#online_games'
     get '/:id/user_play' => 'game#user_play'

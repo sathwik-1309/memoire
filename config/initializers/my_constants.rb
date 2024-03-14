@@ -2,6 +2,7 @@ SUITS = ['♠','♥','♦','♣']
 VALUES = ['A','2','3','4','5','6','7','8','9','10','J','Q','K']
 
 # status
+START_ACK = "start_ack"
 FINISHED = "finished"
 ONGOING = "ongoing"
 DEAD = "dead"
@@ -18,7 +19,7 @@ START_ACK = "start_ack"
 
 # game user status
 GAME_USER_START_ACK = "start_ack"
-GAME_USER_WAITING_TO_JOIN = "waiting"
+GAME_USER_WAITING = "waiting"
 GAME_USER_IS_PLAYING = "playing"
 GAME_USER_FINISHED = "finished"
 GAME_USER_QUIT = "quit"

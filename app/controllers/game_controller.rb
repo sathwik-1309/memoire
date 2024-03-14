@@ -60,7 +60,8 @@ class GameController < ApplicationController
         "stage": @game.stage,
         "pile": @game.pile,
         "inplay": @game.inplay,
-        "used": @game.used
+        "used": @game.used,
+        "status": @game.status
       })
     rescue StandardError => ex
       render_400(ex.message)

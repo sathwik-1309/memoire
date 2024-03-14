@@ -16,6 +16,8 @@ class Game < ApplicationRecord
           self.powerplay_follow_up
         when OFFLOADS
           self.offloads_follow_up
+        when FINISHED
+          self.finished_follow_up
         end
       end
     end
@@ -67,6 +69,13 @@ class Game < ApplicationRecord
     self.timeout = Time.now.utc + TIMEOUT_CD.seconds
     self.save!
     ActionCable.server.broadcast(self.channel, {"timeout": self.timeout, "stage": CARD_DRAW, "id": 12})
+  end
+
+  def finished_follow_up
+    sleep(FINSIHED_SLEEP)
+    self.status = DEAD
+    self.save!
+    ActionCable.server.broadcast(self.channel, {"stage": DEAD, "id": 13})
   end
 
   def self.new_pile

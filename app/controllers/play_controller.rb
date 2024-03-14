@@ -89,10 +89,8 @@ class PlayController < ApplicationController
       if offload['type'] == SELF_OFFLOAD
         offload_card = gu1.cards[offload['offloaded_card_index']]
         if Util.get_card_value(offload_card)[0] != Util.get_card_value(game.used[-1])[0]
-          new_card = game.pile.pop
-          gu1.cards << new_card
-          game.inplay << new_card
-          game.pile.delete(new_card)
+          # false offload
+          gu1.add_extra_card_or_penalty
           offload['is_correct'] = false
         else
           gu1.cards[offload['offloaded_card_index']] = nil
@@ -105,10 +103,8 @@ class PlayController < ApplicationController
         gu2 = game.game_users.find_by_user_id(offload['player2_id'])
         offload_card = gu2.cards[offload['offloaded_card_index']]
         if Util.get_card_value(offload_card)[0] != Util.get_card_value(game.used[-1])[0]
-          new_card = game.pile.pop
-          gu1.cards << new_card
-          game.inplay << new_card
-          game.pile.delete(new_card)
+          # false offload
+          gu1.add_extra_card_or_penalty
           offload['is_correct'] = false
         else
           replaced_card = gu1.cards[offload['replaced_card_index']]
@@ -178,14 +174,15 @@ class PlayController < ApplicationController
       gu1.save!
       gu2.save!
       game.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
+      game.stage = OFFLOADS
       game.save!
-      # ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": @current_user.authentication_token, "id": 6})
+      ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": OFFLOADS, "turn": @current_user.authentication_token, "id": 6})
       render_200("swapped cards successfully", {'timeout'=> game.timeout}) and return
     elsif powerplay['event'] == VIEW_SELF
       gu1 = game.game_users.find_by_user_id(game.turn)
       view_card = gu1.cards[powerplay['view_card_index']]
-      game.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
-      game.save!
+      # game.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
+      # game.save!
       # ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": @current_user.authentication_token, "id": 7})
       render_200(nil, {
         'card' => view_card,
@@ -194,8 +191,8 @@ class PlayController < ApplicationController
     else
       gu2 = game.game_users.find_by_user_id(powerplay['player_id'])
       view_card = gu2.cards[powerplay['view_card_index']]
-      game.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
-      game.save!
+      # game.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
+      # game.save!
       # ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": @current_user.authentication_token, "id": 8})
       render_200(nil, {
         'card' => view_card,

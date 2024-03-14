@@ -109,7 +109,11 @@ class Game < ApplicationRecord
   end
 
   def game_users_sorted
-    self.game_users.order(points: :asc)
+    self.active_users.order(points: :asc) + self.quit_users
+  end
+
+  def quit_users
+    self.game_users.where(status: GAME_USER_QUIT).order("meta->>'quit_time' DESC")
   end
 
   def self.random_shuffle(cards)
@@ -178,6 +182,33 @@ class Game < ApplicationRecord
       'stage' => self.stage
     }
     return hash
+  end
+
+  def active_users
+    self.game_users.filter{ |gu| gu.status != DEAD }
+  end
+
+  def finish_game(type, user = nil)
+    game_users = self.game_users
+    game_users.each do |game_user|
+      if game_user.status != GAME_USER_QUIT
+        game_user.points += game_user.count_cards
+        game_user.status = GAME_USER_FINISHED
+        game_user.save!
+      end
+    end
+    self.status = FINISHED
+    self.stage = FINISHED
+    self.meta['game_users_sorted'] = self.game_users_sorted.map{|gu| gu.user_id}
+    if type == 'showcards'
+      self.meta['show_called_by'] = {
+        'player_id' => user.id,
+        'name' => user.name
+      }
+    end
+    self.meta['finish_event'] = type
+    self.timeout = nil
+    self.save!
   end
 
 end

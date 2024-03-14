@@ -21,6 +21,7 @@ GAME_USER_START_ACK = "start_ack"
 GAME_USER_WAITING_TO_JOIN = "waiting"
 GAME_USER_IS_PLAYING = "playing"
 GAME_USER_FINISHED = "finished"
+GAME_USER_QUIT = "quit"
 
 SELF_OFFLOAD = "self offload"
 CROSS_OFFLOAD = "cross offload"

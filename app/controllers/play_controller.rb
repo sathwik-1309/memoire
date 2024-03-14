@@ -223,27 +223,11 @@ class PlayController < ApplicationController
   end
 
   def showcards
-    game_users = @game.game_users
-    game_users.each do |game_user|
-      game_user.points += game_user.count_cards
-      game_user.status = GAME_USER_FINISHED
-      game_user.save!
-    end
-    @game.status = FINISHED
-    @game.stage = FINISHED
-    @game.meta['game_users_sorted'] = @game.game_users_sorted.map{|gu| gu.user_id}
-    @game.meta['show_called_by'] = {
-      'player_id' => @current_user.id,
-      'name' => @current_user.name
-    }
-    @game.timeout = nil
-    @game.save!
-    puts "---------"
-    puts @game.status
-    puts "---------"
+    @game.finish_game('showcards', @current_user)
     ActionCable.server.broadcast(@game.channel, {"stage": FINISHED, "id": 10})
     render_200("Game is in finished state")
   end
+
   private
 
   def set_game

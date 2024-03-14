@@ -68,30 +68,6 @@ class GameController < ApplicationController
     end
   end
 
-  # def initial_view
-  #   if @current_user.nil?
-  #     render_400("User not authorized") and return
-  #   end
-  #   gu = @current_user.game_users.find_by_game_id(params[:id])
-  #   if gu.nil?
-  #     render_400("Game not found") and return
-  #   end
-  #   @game = gu.game
-  #   begin
-  #     if gu.initial_view
-  #       render_400("alreday viewed") and return
-  #     end
-  #     gu.initial_view = true
-  #     gu.save!
-  #     render_200(nil,{
-  #       'card_1' => gu.cards[0],
-  #       'card_2' => gu.cards[1]
-  #     })
-  #   rescue StandardError => ex
-  #     render_400(ex.message)
-  #   end
-  # end
-
   def online_games
     if @current_user.nil?
       render_400("Unauthorized") and return
@@ -106,7 +82,7 @@ class GameController < ApplicationController
   end
 
   def close_offloads
-    game =  Game.find_by(id: params[:game_id])
+    game =  Game.find_by(id: params[:id])
     if game.nil?
       render_404("game not found") and return
     end
@@ -134,6 +110,7 @@ class GameController < ApplicationController
       render_400("User not authorized") and return
     end
     gu = @current_user.game_users.find_by_game_id(params[:id])
+    render_400("Already quit from game") and return if gu.status == DEAD
     if gu.nil?
       render_400("Game not found") and return
     end
@@ -173,12 +150,14 @@ class GameController < ApplicationController
       temp['player_id'] = gu.user_id
       temp['name'] = gu.user.name
       temp['user_status'] = gu.status
-      if game.finished?
-        temp['cards'] = gu.cards
-        temp['finished_at'] = game.meta['game_users_sorted'].index(gu.user_id) + 1
-        temp['points'] = gu.points
-      else
-        temp['cards'] = gu.cards.map{|card| card.present? ? 1 : 0}
+      if gu.status != GAME_USER_QUIT
+        if game.finished?
+          temp['cards'] = gu.cards
+          temp['finished_at'] = game.meta['game_users_sorted'].index(gu.user_id) + 1
+          temp['points'] = gu.points
+        else
+          temp['cards'] = gu.cards.map{|card| card.present? ? 1 : 0}
+        end
       end
       count += 1
       table << temp
@@ -199,7 +178,6 @@ class GameController < ApplicationController
     end
     render_200(nil, hash)
   end
-
 
   def start_ack
     if @current_user.nil?
@@ -251,6 +229,27 @@ class GameController < ApplicationController
       "card" => gu.cards[filter_params[:card_index].to_i]
     })
 
+  end
+
+  def quit
+    if @current_user.nil?
+      render_400("User not authorized") and return
+    end
+    gu = @current_user.game_users.find_by_game_id(params[:id])
+    if gu.nil?
+      render_400("Game not found") and return
+    end
+
+    gu.status = GAME_USER_QUIT
+    gu.meta['quit_time'] = Time.now.utc
+    gu.save!
+    if gu.game.active_users.length == 1
+      ActionCable.server.broadcast(gu.game.channel, {"message": "user_quit", "id": 14})
+    else
+      gu.game.finish_game('quit')
+      ActionCable.server.broadcast(gu.game.channel, {"message": "game_finished", "stage": FINISHED, "id": 14})
+    end
+    render_200("Quit Successfull")
   end
 
   private

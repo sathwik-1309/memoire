@@ -18,6 +18,7 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_06_180728) do
     t.integer "view_count", default: 0
     t.string "status", default: "start_ack"
     t.integer "points", default: 0
+    t.json "meta", default: {}
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["game_id"], name: "index_game_users_on_game_id"

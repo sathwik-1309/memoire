@@ -23,7 +23,8 @@ Rails.application.routes.draw do
     get '/online_games' => 'game#online_games'
     get '/:id/user_play' => 'game#user_play'
     post '/:id/start_ack' => 'game#start_ack'
-    put '/:game_id/close_offloads' => 'game#close_offloads'
+    put '/:id/close_offloads' => 'game#close_offloads'
+    put '/:id/quit' => 'game#quit'
   end
 
   scope :plays do

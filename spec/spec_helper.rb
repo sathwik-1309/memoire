@@ -92,3 +92,19 @@ RSpec.configure do |config|
   Kernel.srand config.seed
 =end
 end
+
+def sign_in(user)
+  controller.instance_variable_set(:@current_user, user)
+end
+
+def validate_response(response, code, message=nil)
+  expect(response).to have_http_status(code)
+  resp = Oj.load(response.body)
+  expect(resp['message']).to eq(message) unless message.nil?
+end
+
+def validate_error_response(response, code, error)
+  expect(response).to have_http_status(code)
+  resp = Oj.load(response.body)
+  expect(resp['error']).to eq(error)
+end

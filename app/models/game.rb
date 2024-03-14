@@ -51,7 +51,7 @@ class Game < ApplicationRecord
     self.stage = OFFLOADS
     self.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
     self.save!
-    ActionCable.server.broadcast(self.channel, {"timeout": self.timeout, "stage": self.stage, "id": 11})
+    ActionCable.server.broadcast(self.channel, {"timeout": self.timeout, "stage": OFFLOADS, "id": 11})
   end
 
   def offloads_follow_up
@@ -59,10 +59,14 @@ class Game < ApplicationRecord
     sleep(TIMEOUT_OFFLOAD)
     return if self.reload.status != ONGOING
     self.stage = CARD_DRAW
-    self.turn = self.next_turn_player_id(self.turn)
+    if self.current_play.offloads.present?
+      self.turn = self.next_turn_player_id(self.current_play.offloads[-1]['player1_id'])
+    else
+      self.turn = self.next_turn_player_id(self.turn)
+    end
     self.timeout = Time.now.utc + TIMEOUT_CD.seconds
     self.save!
-    ActionCable.server.broadcast(self.channel, {"timeout": self.timeout, "stage": self.stage, "id": 12})
+    ActionCable.server.broadcast(self.channel, {"timeout": self.timeout, "stage": CARD_DRAW, "id": 12})
   end
 
   def self.new_pile
@@ -166,4 +170,5 @@ class Game < ApplicationRecord
     }
     return hash
   end
+
 end

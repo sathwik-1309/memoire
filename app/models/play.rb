@@ -61,4 +61,5 @@ class Play < ApplicationRecord
     }
     return hash
   end
+  
 end

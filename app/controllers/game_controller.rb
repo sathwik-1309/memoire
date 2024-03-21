@@ -2,117 +2,107 @@ class GameController < ApplicationController
   before_action :set_current_user
 
   def index
-    arr = []
-    if @current_user.present?
-      games = current_user.game_users.map{|gu| gu.game}.filter{|game| game.status == ONGOING}
-    else
-      games = Game.all
-    end
-    games = games.map{|game| game.attributes.slice('id', 'status') }
-    render_200(nil, {'games' => games})
+    games = if @current_user.present?
+              @current_user.game_users.map(&:game).filter { |game| game.status == 'ONGOING' }
+            else
+              Game.all
+            end
+
+    games = games.map { |game| game.attributes.slice('id', 'status') }
+
+    render json: { games: games }, status: :ok
   end
 
   def create
     players = User.where(id: filter_params[:player_ids])
-    
-    if players.length < 3 or players.length > 4
-      render_400("Game allows 3-4 players only") and return
-    end
 
-    @game = Game.new
-    @game.status = ONGOING
-    @game.pile = Game.new_pile
-    players = User.random_shuffle(players)
-    @game.play_order = players.map{|player| player.id}
-    @game.turn = @game.play_order[0]
-    begin
-      @game.save!
+    if players.count.between?(3, 4)
+      @game = Game.create!(status: ONGOING, pile: Game.new_pile, play_order: players.pluck(:id).shuffle, turn: players.first.id)
       @game.create_game_users(players)
-      render_200("game created", {
-        "id": @game.id,
-        "players": players.map{|player| {'id'=> player.id, 'name'=>player.name} }
-      })
-    rescue StandardError => ex
-      render_400(ex.message)
+      render json: { message: "game created", game: { id: @game.id, players: players.map { |player| { id: player.id, name: player.name } } } }, status: :created
+    else
+      render json: { error: "Game allows 3-4 players only" }, status: :bad_request
     end
+  rescue StandardError => ex
+    render json: { error: ex.message }, status: :bad_request
   end
 
   def details
     @game = Game.find_by(id: params[:id])
     if @game.nil?
-      render_400("Game not found") and return
+      render json: { error: "Game not found" }, status: :not_found
+    else
+      render json: {
+        id: @game.id,
+        players: @game.game_users.map do |gu|
+          {
+            id: gu.user_id,
+            name: gu.user.name,
+            cards: gu.cards
+          }
+        end,
+        turn: @game.turn,
+        play_order: @game.play_order,
+        stage: @game.stage,
+        pile: @game.pile,
+        inplay: @game.inplay,
+        used: @game.used,
+        status: @game.status
+      }, status: :ok
     end
-    begin
-      render_200(nil, {
-        "id": @game.id,
-        "players": @game.game_users.map{|gu| {'id'=> gu.user_id, 'name'=>gu.user.name ,'cards'=> gu.cards} },
-        "turn": @game.turn,
-        "play_order": @game.play_order,
-        "stage": @game.stage,
-        "pile": @game.pile,
-        "inplay": @game.inplay,
-        "used": @game.used,
-        "status": @game.status
-      })
-    rescue StandardError => ex
-      render_400(ex.message)
-    end
+  rescue StandardError => ex
+    render json: { error: ex.message }, status: :bad_request
   end
 
   def online_games
     if @current_user.nil?
-      render_400("Unauthorized") and return
+      render json: { error: "Unauthorized" }, status: :unauthorized
+      return
     end
-    begin
     games = @current_user.games.filter{|game| game.status == ONGOING}
-    hash = games.map{|game| game.attributes }
-    render_200(nil, hash)
-    rescue StandardError => ex
-      render_400(ex.message)
-    end
+    hash = games.map(&:attributes)
+    render json: hash, status: :ok
+  rescue StandardError => e
+    render json: { error: e.message }, status: :bad_request
   end
 
   def close_offloads
-    game =  Game.find_by(id: params[:id])
-    if game.nil?
-      render_404("game not found") and return
-    end
-    begin
-      offloads = game.current_play.offloads
-      if offloads.present?
-        game.turn = game.update_turn_to_next(offloads[-1]['player1_id'])
-      else
-        game.turn = game.update_turn_to_next(game.turn)
-      end
-      game.stage = CARD_DRAW
-      game.save!
-      render_200("game stage and turn updated successfully",{
-        "stage" => game.stage,
-        "turn" => game.turn
-      })
-    rescue StandardError => ex
-      render_400(ex.message)
-    end
+    game = Game.find(params[:id])
 
+    offloads = game.current_play.offloads
+    game.turn = if offloads.present?
+                  game.update_turn_to_next(offloads[-1]['player1_id'])
+                else
+                  game.update_turn_to_next(game.turn)
+                end
+
+    game.stage = CARD_DRAW
+    game.save!
+
+    render json: { message: "game stage and turn updated successfully", stage: game.stage, turn: game.turn }, status: :ok
+  rescue ActiveRecord::RecordNotFound
+    render json: { error: "game not found" }, status: :not_found
+  rescue StandardError => e
+    render json: { error: e.message }, status: :bad_request
   end
-
+#TODO:done
   def user_play
     if @current_user.nil?
-      render_400("User not authorized") and return
+      render json: { error: "User not authorized" }, status: 400 and return
     end
     gu = @current_user.game_users.find_by_game_id(params[:id])
-    render_400("Already quit from game") and return if gu.status == DEAD
+    render json: { error: "Already quit from game" }, status: 400 and return if gu.status == DEAD
     if gu.nil?
-      render_400("Game not found") and return
+      render json: { error: "Game not found" }, status: 400 and return
     end
 
     game = gu.game
-    render_400("Game is dead") and return if game.dead?
+    render json: { error: "Game is dead" }, status: 400 and return if game.dead?
 
     hash = game.attributes.slice('stage', 'play_order', 'timeout', 'status')
     unless game.started?
       hash['game_user_status'] = gu.status
-      render_200(nil, hash) and return
+      render json: hash, status: 200 and return
     end
 
     if game.finished?
@@ -155,12 +145,12 @@ class GameController < ApplicationController
       table << temp
     end
     hash['table'] = table
-    render_200("Game is finished", hash) and return if game.stage == FINISHED
+    render json: { message: "Game is finished", data: hash }, status: 200 and return if game.stage == FINISHED
 
     if game.turn == @current_user.id
       play = game.current_play
       hash['your_turn'] = true
-      case game.stage 
+      case game.stage
       when DOR
         hash['card_drawn'] = play.card_draw['card_drawn']
       when POWERPLAY
@@ -168,7 +158,7 @@ class GameController < ApplicationController
         hash['powerplay_type'] = play.powerplay_type
       end
     end
-    render_200(nil, hash)
+    render json: hash, status: 200
   end
 
   def start_ack

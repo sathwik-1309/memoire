@@ -3,7 +3,6 @@ class GameController < ApplicationController
 
   def index
     arr = []
-    byebug
     if @current_user.present?
       games = current_user.game_users.map{|gu| gu.game}.filter{|game| game.status == ONGOING}
     else
@@ -110,7 +109,7 @@ class GameController < ApplicationController
     game = gu.game
     render_400("Game is dead") and return if game.dead?
 
-    hash = game.attributes.slice('stage', 'play_order', 'timeout')
+    hash = game.attributes.slice('stage', 'play_order', 'timeout', 'status')
     unless game.started?
       hash['game_user_status'] = gu.status
       render_200(nil, hash) and return
@@ -121,6 +120,7 @@ class GameController < ApplicationController
     end
 
     hash['turn'] = User.find_by_id(game.turn).name
+    hash['turn_id'] = game.turn
     hash['last_used'] = game.used[-1]
     if game.stage == CARD_DRAW
       if game.plays.length > 1

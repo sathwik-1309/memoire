@@ -109,11 +109,11 @@ class Game < ApplicationRecord
   end
 
   def game_users_sorted
-    self.active_users.order(points: :asc) + self.quit_users
+    self.active_users.sort_by{|gu| gu.points} + self.quit_users
   end
 
   def quit_users
-    self.game_users.where(status: GAME_USER_QUIT).order("meta->>'quit_time' DESC")
+    self.game_users.where(status: GAME_USER_QUIT).sort_by{|gu| - gu.meta['quit_time']}
   end
 
   def self.random_shuffle(cards)

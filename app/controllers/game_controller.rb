@@ -1,5 +1,6 @@
 class GameController < ApplicationController
   before_action :set_current_user
+  before_action :check_current_user, except: [:index, :create, :details]
 
   def index
     games = if @current_user.present?
@@ -55,10 +56,6 @@ class GameController < ApplicationController
   end
 
   def online_games
-    if @current_user.nil?
-      render json: { error: "Unauthorized" }, status: :unauthorized
-      return
-    end
     games = @current_user.games.filter{|game| game.status == ONGOING}
     hash = games.map(&:attributes)
     render json: hash, status: :ok
@@ -85,11 +82,8 @@ class GameController < ApplicationController
   rescue StandardError => e
     render json: { error: e.message }, status: :bad_request
   end
-#TODO:done
+
   def user_play
-    if @current_user.nil?
-      render json: { error: "User not authorized" }, status: 400 and return
-    end
     gu = @current_user.game_users.find_by_game_id(params[:id])
     render json: { error: "Already quit from game" }, status: 400 and return if gu.status == DEAD
     if gu.nil?
@@ -162,9 +156,6 @@ class GameController < ApplicationController
   end
 
   def start_ack
-    if @current_user.nil?
-      render_400("User not authorized") and return
-    end
     gu = @current_user.game_users.find_by_game_id(params[:id])
     if gu.nil?
       render_400("Game not found") and return
@@ -194,34 +185,17 @@ class GameController < ApplicationController
   end
 
   def view_initial
-    if @current_user.nil?
-      render_400("User not authorized") and return
-    end
-    gu = @current_user.game_users.find_by_game_id(params[:id])
-    if gu.nil?
-      render_400("Game not found") and return
-    end
-    if gu.view_count >= 2
-      render_400("Already viewed 2 cards") and return
-    end
+    gu = @current_user.game_users.find_by(game_id: params[:id])
+    return render json: { error: "Already viewed 2 cards" }, status: 400 if gu.view_count >= 2
 
-    gu.view_count += 1
-    gu.save!
-    render_200(nil,{
-      "card" => gu.cards[filter_params[:card_index].to_i]
-    })
-
+    gu.increment!(:view_count)
+    render json: { card: gu.cards[filter_params[:card_index].to_i] }, status: 200
+  rescue ActiveRecord::RecordNotFound
+    render json: { error: "Game not found" }, status: :not_found
   end
 
   def quit
-    if @current_user.nil?
-      render_400("User not authorized") and return
-    end
     gu = @current_user.game_users.find_by_game_id(params[:id])
-    if gu.nil?
-      render_400("Game not found") and return
-    end
-
     gu.status = GAME_USER_QUIT
     gu.meta['quit_time'] = Time.now.utc
     gu.save!
@@ -231,10 +205,17 @@ class GameController < ApplicationController
       gu.game.finish_game('quit')
       ActionCable.server.broadcast(gu.game.channel, {"message": "game_finished", "stage": FINISHED, "id": 14})
     end
-    render_200("Quit Successfull")
+    render json: { message: "Quit Successfull" }, status: :ok
+  rescue ActiveRecord::RecordNotFound
+    render json: { error: "Game not found" }, status: :not_found
   end
 
   private
+  def check_current_user
+    if @current_user.nil?
+      render json: { error: "User not authorized" }, status: 400 and return
+    end
+  end
 
   def filter_params
     params.permit(:player_id, :card_index, player_ids: [])

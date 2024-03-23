@@ -4,7 +4,7 @@ class UserController < ApplicationController
   before_action :set_user, only: [:create]
 
   def index
-    users = User.select(:name, :username, :id, :authentication_token)
+    users = User.select(:id, :name, :username, :authentication_token)
     render json: users
   end
 

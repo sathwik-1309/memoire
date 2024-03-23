@@ -15,10 +15,10 @@ class GameController < ApplicationController
   end
 
   def create
-    players = User.where(id: filter_params[:player_ids])
+    players = User.where(id: filter_params[:player_ids]).shuffle
 
     if players.count.between?(3, 4)
-      @game = Game.create!(status: ONGOING, pile: Game.new_pile, play_order: players.pluck(:id).shuffle, turn: players.first.id)
+      @game = Game.create!(status: ONGOING, pile: Game.new_pile, play_order: players.pluck(:id), turn: players.first.id)
       @game.create_game_users(players)
       render json: { message: "game created", game: { id: @game.id, players: players.map { |player| { id: player.id, name: player.name } } } }, status: :created
     else

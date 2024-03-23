@@ -20,10 +20,10 @@ class UserController < ApplicationController
 
   def set_user
     @user = User.new(user_params)
-    @user.authentication_token = SecureRandom.hex(10)
+    @user.authentication_token = Util.generate_random_string(10)
   end
 
   def user_params
-    params.require(:user).permit(:name, :username)
+    params.permit(:name, :username)
   end
 end

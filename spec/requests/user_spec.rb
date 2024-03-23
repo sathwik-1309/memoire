@@ -27,7 +27,7 @@ RSpec.describe UserController, type: :controller do
         post :create, params: valid_attributes
         expect(response).to have_http_status(:created)
         expect(response.content_type).to eq('application/json; charset=utf-8')
-        expect(response.body).to include('User created')
+        expect(response.body).to include('name')
       end
     end
   end

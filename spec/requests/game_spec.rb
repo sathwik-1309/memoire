@@ -112,49 +112,49 @@ RSpec.describe GameController, type: :controller do
     end
   end
 
-  describe 'GET #online_games' do
-    let(:user1) { create(:user) }
-    let(:user2) { create(:user) }
-    let(:game1) { create(:game, :ongoing) }
-    let(:game2) { create(:game, :finished) }
-    before do
-      create(:game_user, user: user1, game: game1)
-      create(:game_user, user: user1, game: game2)
-      create(:game_user, user: user2, game: game2)
-    end
-
-    context 'when there is a current user' do
-      it 'returns only ongoing games of current user' do
-        get :online_games, params: { auth_token: user1.authentication_token }
-        validate_response(response, 200)
-        res = Oj.load(response.body)
-        expect(res.length).to eq(1)
-        expect(res[0]['id']).to eq(game1.id)
-      end
-
-      it 'returns empty array if no ongoing games for current user' do
-        get :online_games, params: { auth_token: user2.authentication_token }
-        validate_response(response, 200)
-        res = Oj.load(response.body)
-        expect(res).to eq([])
-      end
-      it 'returns error if something goes wrong' do
-        allow_any_instance_of(User).to receive(:games).and_raise(StandardError, 'Something went wrong')
-        get :online_games, params: { auth_token: user2.authentication_token }
-        validate_response(response, :bad_request)
-        res = Oj.load(response.body)
-        expect(res['error']).to eq('Something went wrong')
-      end
-    end
-
-    context 'when there is no current user' do
-      it 'returns a bad request status' do
-        get :online_games
-        validate_response(response, :bad_request)
-        expect(Oj.load(response.body)['error']).to eq('User not authorized')
-      end
-    end
-  end
+  # describe 'GET #online_games' do
+  #   let(:user1) { create(:user) }
+  #   let(:user2) { create(:user) }
+  #   let(:game1) { create(:game, :ongoing) }
+  #   let(:game2) { create(:game, :finished) }
+  #   before do
+  #     create(:game_user, user: user1, game: game1)
+  #     create(:game_user, user: user1, game: game2)
+  #     create(:game_user, user: user2, game: game2)
+  #   end
+  #
+  #   context 'when there is a current user' do
+  #     it 'returns only ongoing games of current user' do
+  #       get :online_games, params: { auth_token: user1.authentication_token }
+  #       validate_response(response, 200)
+  #       res = Oj.load(response.body)
+  #       expect(res.length).to eq(1)
+  #       expect(res[0]['id']).to eq(game1.id)
+  #     end
+  #
+  #     it 'returns empty array if no ongoing games for current user' do
+  #       get :online_games, params: { auth_token: user2.authentication_token }
+  #       validate_response(response, 200)
+  #       res = Oj.load(response.body)
+  #       expect(res).to eq([])
+  #     end
+  #     it 'returns error if something goes wrong' do
+  #       allow_any_instance_of(User).to receive(:games).and_raise(StandardError, 'Something went wrong')
+  #       get :online_games, params: { auth_token: user2.authentication_token }
+  #       validate_response(response, :bad_request)
+  #       res = Oj.load(response.body)
+  #       expect(res['error']).to eq('Something went wrong')
+  #     end
+  #   end
+  #
+  #   # context 'when there is no current user' do
+  #   #   it 'returns a bad request status' do
+  #   #     get :online_games
+  #   #     validate_response(response, :bad_request)
+  #   #     expect(Oj.load(response.body)['error']).to eq('User not authorized')
+  #   #   end
+  #   # end
+  # end
 
   describe "GET #view_initial" do
     let(:user) { create(:user) }

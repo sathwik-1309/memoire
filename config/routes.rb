@@ -17,13 +17,11 @@ Rails.application.routes.draw do
     get '/check' => 'game#check'
     get '/index' => 'game#index'
     get '/:id/details' => 'game#details'
-    get '/:id/initial_view' => 'game#initial_view'
     get '/:id/view_initial' => 'game#view_initial'
     post '/create' => 'game#create'
-    get '/online_games' => 'game#online_games'
+    # get '/online_games' => 'game#online_games'
     get '/:id/user_play' => 'game#user_play'
     post '/:id/start_ack' => 'game#start_ack'
-    put '/:id/close_offloads' => 'game#close_offloads'
     put '/:id/quit' => 'game#quit'
   end
 

@@ -56,33 +56,13 @@ class GameController < ApplicationController
     render json: { error: ex.message }, status: :bad_request
   end
 
-  def online_games
-    games = @current_user.games.filter{|game| game.status == ONGOING}
-    hash = games.map(&:attributes)
-    render json: hash, status: :ok
-  rescue StandardError => e
-    render json: { error: e.message }, status: :bad_request
-  end
-
-  def close_offloads
-    game = Game.find(params[:id])
-
-    offloads = game.current_play.offloads
-    game.turn = if offloads.present?
-                  game.update_turn_to_next(offloads[-1]['player1_id'])
-                else
-                  game.update_turn_to_next(game.turn)
-                end
-
-    game.stage = CARD_DRAW
-    game.save!
-
-    render json: { message: "game stage and turn updated successfully", stage: game.stage, turn: game.turn }, status: :ok
-  rescue ActiveRecord::RecordNotFound
-    render json: { error: "game not found" }, status: :not_found
-  rescue StandardError => e
-    render json: { error: e.message }, status: :bad_request
-  end
+  # def online_games
+  #   games = @current_user.games.filter{|game| game.status == ONGOING}
+  #   hash = games.map(&:attributes)
+  #   render json: hash, status: :ok
+  # rescue StandardError => e
+  #   render json: { error: e.message }, status: :bad_request
+  # end
 
   def user_play
     gu = @current_user.game_users.find_by_game_id(params[:id])

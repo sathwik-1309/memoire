@@ -42,7 +42,8 @@ class PlayController < ApplicationController
       game.current_play = play.id
       game.timeout = Time.now.utc + TIMEOUT_DOR.seconds
       game.save!
-      ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": DOR, "turn": @current_user.authentication_token, "id": 3})
+      ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": DOR, "turn": @current_user.authentication_token, "message": "stage #{DOR}"})
+      ThreadAction.bot_actions_discard(game, drawn_card)
       render_200(nil,{
         'card_drawn' => drawn_card,
         'timeout' => game.timeout,
@@ -123,14 +124,14 @@ class PlayController < ApplicationController
       play.save!
       game.save!
       offload['timeout'] = game.timeout
-      ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": @current_user.authentication_token, "id": 5})
+      ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": OFFLOADS, "turn": @current_user.authentication_token, "message": 5})
       render_200(nil, offload)
     # rescue StandardError => ex
     #   render_400(ex.message)
     # end
   end
 
-  def create_powerplay
+  def powerplay
     game =  @current_user.games.find{|game| game.id == params[:game_id].to_i}
     if game.nil?
       render_404("game not found") and return
@@ -202,25 +203,25 @@ class PlayController < ApplicationController
 
   end
 
-  def close_powerplay
-    game =  @current_user.games.find{|game| game.id == params[:game_id].to_i}
-    if game.nil?
-      render_404("game not found") and return
-    end
-
-    if game.turn != @current_user.id
-      render_400("Incorrect player turn") and return
-    end
-
-    if game.stage != POWERPLAY
-      render_400("game stage is #{game.stage}: cannot exercise powerplay") and return
-    end
-
-    game.stage = OFFLOADS
-    game.save!
-    ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": @current_user.authentication_token, "id": 7})
-    render_200("Ack")
-  end
+  # def close_powerplay
+  #   game =  @current_user.games.find{|game| game.id == params[:game_id].to_i}
+  #   if game.nil?
+  #     render_404("game not found") and return
+  #   end
+  #
+  #   if game.turn != @current_user.id
+  #     render_400("Incorrect player turn") and return
+  #   end
+  #
+  #   if game.stage != POWERPLAY
+  #     render_400("game stage is #{game.stage}: cannot exercise powerplay") and return
+  #   end
+  #
+  #   game.stage = OFFLOADS
+  #   game.save!
+  #   ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": @current_user.authentication_token, "id": 7})
+  #   render_200("Ack")
+  # end
 
   def showcards
     @game.finish_game('showcards', @current_user)

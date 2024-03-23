@@ -6,19 +6,23 @@ class Game < ApplicationRecord
 
   def execute_on_stage_change
     if saved_change_to_stage?
-      Thread.new do
-        case self.stage
-        when CARD_DRAW
-          self.card_draw_follow_up
-        when DOR
-          self.dor_follow_up
-        when POWERPLAY
-          self.powerplay_follow_up
-        when OFFLOADS
-          self.offloads_follow_up
-        when FINISHED
-          self.finished_follow_up
+      begin
+        Thread.new do
+          case self.stage
+          when CARD_DRAW
+            self.card_draw_follow_up
+          when DOR
+            self.dor_follow_up
+          when POWERPLAY
+            self.powerplay_follow_up
+          when OFFLOADS
+            self.offloads_follow_up
+          when FINISHED
+            self.finished_follow_up
+          end
         end
+      rescue StandardError => ex
+        #TODO: logging
       end
     end
   end
@@ -31,7 +35,8 @@ class Game < ApplicationRecord
     self.turn = self.next_turn_player_id(self.turn)
     self.timeout = Time.now.utc + TIMEOUT_CD.seconds
     self.save!
-    ActionCable.server.broadcast(self.channel, {"timeout": self.timeout, "stage": self.stage, "id": 9})
+    ActionCable.server.broadcast(self.channel, {"timeout": self.timeout, "stage": CARD_DRAW, "id": 9})
+    ThreadAction.bot_actions_card_draw(self)
     self.card_draw_follow_up
   end
 
@@ -57,7 +62,6 @@ class Game < ApplicationRecord
   end
 
   def offloads_follow_up
-    # byebug
     sleep(TIMEOUT_OFFLOAD)
     return if self.reload.status != ONGOING
     self.stage = CARD_DRAW
@@ -69,6 +73,7 @@ class Game < ApplicationRecord
     self.timeout = Time.now.utc + TIMEOUT_CD.seconds
     self.save!
     ActionCable.server.broadcast(self.channel, {"timeout": self.timeout, "stage": CARD_DRAW, "id": 12})
+    ThreadAction.bot_actions_card_draw(self)
   end
 
   def finished_follow_up
@@ -124,13 +129,21 @@ class Game < ApplicationRecord
     pile = self.pile
     inplay = []
     players.each do |player|
-      gu = GameUser.new
+      if player.is_bot
+        gu = BotUser.new
+        gu.status = GAME_USER_WAITING
+        gu.meta['memory'] = {
+          'cards' => {
+            'self' => Util.card_memory_init,
+            'other' => Util.card_memory_init,
+          },
+          'layout' => gu.layout_memory_init,
+        }
+      else
+        gu = GameUser.new
+      end
       gu.user_id = player.id
       gu.game_id = self.id
-      if player.is_bot
-        gu.is_bot = true 
-        gu.status = GAME_USER_WAITING
-      end
       cards = pile[..3]
       inplay += cards
       gu.cards = cards
@@ -190,6 +203,10 @@ class Game < ApplicationRecord
 
   def active_users
     self.game_users.filter{ |gu| gu.status != DEAD }
+  end
+
+  def bot_users
+    self.game_users.where(is_bot: true)
   end
 
   def finish_game(type, user = nil)

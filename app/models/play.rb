@@ -53,7 +53,7 @@ class Play < ApplicationRecord
     end
     game.save!
     play.save!
-    ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": user.authentication_token, "id": 4})
+    ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": user.authentication_token, "message": "stage #{game.stage}"})
     hash = {
       'discarded_card' => discarded_card,
       'timeout' => game.timeout,

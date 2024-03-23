@@ -16,8 +16,8 @@ class GameController < ApplicationController
 
   def create
     players = User.where(id: filter_params[:player_ids])
-    if players.length < 3
-      bots = Util.pick_n_random_items(User.get_bots, 3-players.length)
+    if players.length < 4
+      bots = Util.pick_n_random_items(User.get_bots, 4-players.length)
       players += bots
     end
 
@@ -176,14 +176,11 @@ class GameController < ApplicationController
       end
       game.timeout = Time.now.utc + TIMEOUT_IV.seconds
       game.save!
-      ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": INITIAL_VIEW, "id": 1})
-      Thread.new do
-        sleep(TIMEOUT_IV)
-        game.stage = CARD_DRAW
-        game.timeout = Time.now.utc + TIMEOUT_CD.seconds
-        game.save!
-        ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": CARD_DRAW, "turn": User.find_by_id(game.turn).authentication_token, "id": 2})
-      end
+      ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": INITIAL_VIEW, "message": "game started"})
+
+      ThreadAction.bot_actions_initial_view(game)
+
+      ThreadAction.move_to_card_draw(game)
     end
     render_200("Waiting for other players to join...")
   end
@@ -204,10 +201,10 @@ class GameController < ApplicationController
     gu.meta['quit_time'] = Time.now.utc
     gu.save!
     if gu.game.active_users.length == 1
-      ActionCable.server.broadcast(gu.game.channel, {"message": "user_quit", "id": 14})
+      ActionCable.server.broadcast(gu.game.channel, {"message": "user quit", "id": 3})
     else
       gu.game.finish_game('quit')
-      ActionCable.server.broadcast(gu.game.channel, {"message": "game_finished", "stage": FINISHED, "id": 14})
+      ActionCable.server.broadcast(gu.game.channel, {"message": "game finished", "id": 4})
     end
     render json: { message: "Quit Successfull" }, status: :ok
   end

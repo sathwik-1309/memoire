@@ -9,8 +9,28 @@ module Util
     return card.split(" ")
   end
 
-  def pick_n_random_items(array, n)
+  def self.get_card_number(card)
+    return card.split(" ")[0]
+  end
+
+  def self.pick_n_random_items(array, n)
     array.shuffle.take(n)
+  end
+
+  def self.card_memory_init
+    hash = {}
+    VALUES.each do |val|
+      hash[val] = []
+    end
+    hash
+  end
+
+  def self.seen_card_memory(card, index)
+    {
+      'seen' => true,
+      'value' => card,
+      'index' => index
+    }
   end
   
 end

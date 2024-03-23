@@ -3,11 +3,11 @@
 FactoryBot.define do
   factory :game do
     trait :ongoing do
-      status { 'ONGOING' }
+      status { 'ongoing' }
     end
 
     trait :finished do
-      status { 'FINISHED' }
+      status { 'finished' }
     end
   end
 end

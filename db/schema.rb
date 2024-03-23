@@ -10,11 +10,15 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2024_03_06_180728) do
+ActiveRecord::Schema[7.1].define(version: 2024_03_23_143821) do
+  # These are extensions that must be enabled in order to support this database
+  enable_extension "pgcrypto"
+  enable_extension "plpgsql"
+
   create_table "game_users", force: :cascade do |t|
     t.json "cards", default: []
-    t.integer "game_id"
-    t.integer "user_id"
+    t.bigint "game_id"
+    t.uuid "user_id"
     t.integer "view_count", default: 0
     t.string "status", default: "start_ack"
     t.integer "points", default: 0
@@ -46,13 +50,13 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_06_180728) do
     t.json "card_draw", default: {}
     t.json "offloads", default: []
     t.json "powerplay", default: {}
-    t.integer "game_id"
+    t.bigint "game_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["game_id"], name: "index_plays_on_game_id"
   end
 
-  create_table "users", force: :cascade do |t|
+  create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "name", null: false
     t.string "authentication_token"
     t.string "username", null: false

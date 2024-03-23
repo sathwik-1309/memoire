@@ -44,6 +44,7 @@ gem 'rack-cors'
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem 'debug'
+  gem 'faker'
   gem 'parallel_tests', '~> 2.9.0'
   gem 'pry-byebug'
 end
@@ -62,8 +63,7 @@ end
 group :test do
   # Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]
   gem 'factory_bot_rails'
+  gem 'oj'
   gem 'rspec-rails'
   gem 'simplecov'
 end
-
-gem 'oj'

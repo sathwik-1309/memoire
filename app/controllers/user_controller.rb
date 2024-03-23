@@ -1,40 +1,29 @@
+# frozen_string_literal: true
+
 class UserController < ApplicationController
+  before_action :set_user, only: [:create]
 
   def index
-    arr = []
-    users = User.all
-    users.each do |user|
-      arr << {
-        "name" => user.name,
-        "username" => user.username,
-        "id" => user.id,
-        "auth_token" => user.authentication_token
-      }
-    end
-    render(:json => arr)
+    users = User.select(:name, :username, :id, :authentication_token)
+    render json: users
   end
 
   def create
-    attributes = filter_params.slice(:name, :username)
-
-    attributes[:authentication_token] = Util.generate_random_string(10)
-    @user = User.new(attributes)
-    begin
-      @user.save!
-      render_200("User created", {
-        "name": @user.name,
-        "username": @user.username,
-        "auth_token": @user.authentication_token
-      })
-    rescue StandardError => ex
-      render_500(ex.message)
+    if @user.save
+      render json: @user.slice(:name, :username, :authentication_token), status: :created
+    else
+      render json: @user.errors, status: :unprocessable_entity
     end
   end
 
   private
 
-  def filter_params
-    params.permit(:name, :username)
+  def set_user
+    @user = User.new(user_params)
+    @user.authentication_token = Util.generate_random_string(10)
   end
 
+  def user_params
+    params.permit(:name, :username)
+  end
 end

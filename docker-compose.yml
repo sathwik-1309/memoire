@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  # Rails API service
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    environment:
+      POSTGRES_DB: myapi # Set your database name
+      POSTGRES_USER: root # Set your database user
+      POSTGRES_PASSWORD: password # Set your database password
+      DB_HOST: db
+
+
+
+  # PostgreSQL service
+  db:
+    image: postgres:latest # Use an appropriate PostgreSQL image
+    container_name: my_postgres_db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: myapi # Set your database name
+      POSTGRES_USER: root # Set your database user
+      POSTGRES_PASSWORD: password # Set your database password

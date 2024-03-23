@@ -4,7 +4,7 @@ class GameController < ApplicationController
 
   def index
     games = if @current_user.present?
-              @current_user.game_users.map(&:game).filter { |game| game.status == 'ONGOING' }
+              @current_user.game_users.map(&:game).filter { |game| game.status == ONGOING }
             else
               Game.all
             end
@@ -51,6 +51,7 @@ class GameController < ApplicationController
         status: @game.status
       }, status: :ok
     end
+    #TODO: This is returning 200
   rescue StandardError => ex
     render json: { error: ex.message }, status: :bad_request
   end
@@ -186,16 +187,16 @@ class GameController < ApplicationController
 
   def view_initial
     gu = @current_user.game_users.find_by(game_id: params[:id])
+    return render json: { error: "Game not found" }, status: :not_found if gu.nil?
     return render json: { error: "Already viewed 2 cards" }, status: 400 if gu.view_count >= 2
 
     gu.increment!(:view_count)
     render json: { card: gu.cards[filter_params[:card_index].to_i] }, status: 200
-  rescue ActiveRecord::RecordNotFound
-    render json: { error: "Game not found" }, status: :not_found
   end
 
   def quit
     gu = @current_user.game_users.find_by_game_id(params[:id])
+    return render json: { error: "Game not found" }, status: :not_found if gu.nil?
     gu.status = GAME_USER_QUIT
     gu.meta['quit_time'] = Time.now.utc
     gu.save!
@@ -206,8 +207,6 @@ class GameController < ApplicationController
       ActionCable.server.broadcast(gu.game.channel, {"message": "game_finished", "stage": FINISHED, "id": 14})
     end
     render json: { message: "Quit Successfull" }, status: :ok
-  rescue ActiveRecord::RecordNotFound
-    render json: { error: "Game not found" }, status: :not_found
   end
 
   private

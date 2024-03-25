@@ -31,7 +31,7 @@ RSpec.describe GameController, type: :controller do
     end
   end
 
-  describe 'POST #create' do
+  describe 'POST #multiplayer_create' do
     let(:user1) { create(:user) }
     let(:user2) { create(:user) }
     let(:user3) { create(:user) }
@@ -39,13 +39,13 @@ RSpec.describe GameController, type: :controller do
     let(:user5) { create(:user) }
     context 'with 3-4 players' do
       it 'creates a new game' do
-        post :create, params: { player_ids: [user1.id, user2.id, user3.id] }
+        post :multiplayer_create, params: { player_ids: [user1.id, user2.id, user3.id] }
         expect(response).to have_http_status(:created)
         expect(JSON.parse(response.body)['message']).to eq('game created')
       end
 
       it 'creates a new game with 4 players' do
-        post :create, params: { player_ids: [user1.id, user2.id, user3.id, user4.id] }
+        post :multiplayer_create, params: { player_ids: [user1.id, user2.id, user3.id, user4.id] }
         expect(response).to have_http_status(:created)
         expect(JSON.parse(response.body)['message']).to eq('game created')
       end
@@ -53,7 +53,7 @@ RSpec.describe GameController, type: :controller do
 
     context 'with less than 3 players' do
       it 'returns a bad request status' do
-        post :create, params: { player_ids: [user1.id, user2.id] }
+        post :multiplayer_create, params: { player_ids: [user1.id, user2.id] }
         expect(response).to have_http_status(:bad_request)
         expect(JSON.parse(response.body)['error']).to eq('Game allows 3-4 players only')
       end
@@ -61,7 +61,7 @@ RSpec.describe GameController, type: :controller do
 
     context 'with more than 4 players' do
       it 'returns a bad request status' do
-        post :create, params: { player_ids: [user1.id, user2.id, user3.id, user4.id, user5.id] }
+        post :multiplayer_create, params: { player_ids: [user1.id, user2.id, user3.id, user4.id, user5.id] }
         expect(response).to have_http_status(:bad_request)
         expect(JSON.parse(response.body)['error']).to eq('Game allows 3-4 players only')
       end
@@ -72,7 +72,7 @@ RSpec.describe GameController, type: :controller do
         allow(Game).to receive(:create!).and_raise(StandardError, 'Something went wrong')
       end
       it 'returns a bad request status with an error message' do
-        post :create, params: { player_ids: [user1.id, user2.id, user3.id] }
+        post :multiplayer_create, params: { player_ids: [user1.id, user2.id, user3.id] }
         expect(response).to have_http_status(:bad_request)
         expect(JSON.parse(response.body)['error']).to eq('Something went wrong')
       end

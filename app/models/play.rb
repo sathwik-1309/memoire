@@ -24,42 +24,5 @@ class Play < ApplicationRecord
       raise StandardError.new("no powerplay type for #{card_drawn}")
     end
   end
-
-  def create_discard_or_replace(game, user)
-    play = game.current_play
-    event = filter_params['event']
-    new_card = play.card_draw['card_drawn']
-    if event['type'] == DISCARD
-      play.card_draw['discarded_card'] = new_card
-      discarded_card = new_card
-    else
-      gu = game.game_users.find_by_user_id(user.id)
-      discarded_card = gu.cards[event['discarded_card_index']]
-      gu.cards[event['discarded_card_index']] = new_card
-      gu.save!
-      play.card_draw['discarded_card'] = discarded_card
-      play.card_draw['replaced_card'] = new_card
-      game.inplay.delete(discarded_card)
-      game.inplay << new_card
-    end
-    game.used << discarded_card
-    play.card_draw['event'] = event['type']
-    if play.is_powerplay?
-      game.stage = POWERPLAY
-      game.timeout = Time.now.utc + TIMEOUT_PP.seconds
-    else
-      game.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
-      game.stage = OFFLOADS
-    end
-    game.save!
-    play.save!
-    ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": game.stage, "turn": user.authentication_token, "id": 4})
-    hash = {
-      'discarded_card' => discarded_card,
-      'timeout' => game.timeout,
-      'stage' => game.stage
-    }
-    return hash
-  end
   
 end

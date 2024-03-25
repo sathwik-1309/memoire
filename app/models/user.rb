@@ -8,4 +8,8 @@ class User < ApplicationRecord
   def games
     self.game_users.map{|gu| gu.game}
   end
+
+  def get_bots
+    User.where(is_bot: true)
+  end
 end

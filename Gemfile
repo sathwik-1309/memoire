@@ -67,3 +67,8 @@ group :test do
   gem 'rspec-rails'
   gem 'simplecov'
 end
+
+gem 'oj'
+gem 'rake'
+gem 'rest-client'
+gem 'sidekiq', '~> 7.2.2'

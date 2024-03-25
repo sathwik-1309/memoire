@@ -307,7 +307,7 @@ class Game < ApplicationRecord
     when VIEW_OTHERS
       unknown_card, player_id = game_bot.get_others_unknown_card
       return unless unknown_card.present?
-      url = "#{BACKEND_URL}/games/#{self.id}/powerplay?auth_token=#{game_bot.user.authentication_token}"
+      url = "#{BACKEND_URL}/plays/#{self.id}/powerplay?auth_token=#{game_bot.user.authentication_token}"
       params = { powerplay: {
         'event' => VIEW_OTHERS,
         'view_card_index' => unknown_card['index'],

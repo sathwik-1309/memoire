@@ -131,7 +131,7 @@ class GameBot < GameUser
 
   def check_for_show
     self_layout_memory = self.meta['memory']['layout'].find{|hash| hash['player_id'] == self.user_id}
-    self_cards_length = self_layout_memory['cards'].length
+    self_cards_length = self_layout_memory['cards'].filter{|card| card.present?}.length
     return false if self_cards_length >= 4
     next_lowest = 6
     self.meta['memory']['layout'].each do |hash|
@@ -140,8 +140,14 @@ class GameBot < GameUser
         next_lowest = hash['cards'].length if hash['cards'].length < next_lowest
       end
     end
-    return true if self_cards_length > next_lowest
-    return false if self_layout_memory['cards'].find{|hash| hash['seen'] == false}.present?
+    if self_cards_length <= next_lowest
+      self_layout_memory['cards'].each do |card_hash|
+        if card_hash.present?
+          return false unless card_hash['seen']
+          return false if NORMAL_CARD_VALUES.exclude? Util.get_card_number(card_hash['value'])
+        end
+      end
+    end
     true
   end
 

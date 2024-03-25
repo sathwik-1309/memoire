@@ -1,6 +1,6 @@
 class GameController < ApplicationController
   before_action :set_current_user
-  before_action :check_current_user, except: [:index, :create, :details]
+  before_action :check_current_user, except: [:index, :create, :multiplayer_create, :details]
 
   def index
     games = if @current_user.present?
@@ -29,7 +29,7 @@ class GameController < ApplicationController
     @game.turn = @game.play_order[0]
     @game.save!
     @game.create_game_users(players)
-    render_200("game created", {
+    render_201("game created", {
       "id": @game.id,
       "players": players.map{|player| {'id'=> player.id, 'name'=>player.name} }
     })
@@ -44,6 +44,8 @@ class GameController < ApplicationController
     else
       render json: { error: "Game allows 3-4 players only" }, status: :bad_request
     end
+  rescue StandardError => ex
+    render json: { error: ex.message }, status: :bad_request
   end
 
   def details

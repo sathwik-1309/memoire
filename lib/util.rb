@@ -32,5 +32,22 @@ module Util
       'index' => index
     }
   end
+
+  def self.random_wait(stage)
+    case stage
+    when CARD_DRAW
+      return rand(2..7)
+    when DOR
+      return rand(3..8)
+    when INITIAL_VIEW
+      return rand(1..4)
+    when POWERPLAY
+      return rand(2..4)
+    when OFFLOADS
+      return rand(2..4)
+    else
+      return 5
+    end
+  end
   
 end

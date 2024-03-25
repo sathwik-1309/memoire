@@ -16,7 +16,7 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_06_180728) do
     t.integer "game_id"
     t.integer "user_id"
     t.integer "view_count", default: 0
-    t.string "status", default: START_ACK
+    t.string "status", default: "start_ack"
     t.integer "points", default: 0
     t.boolean "is_bot", default: false
     t.json "meta", default: {}
@@ -36,6 +36,7 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_06_180728) do
     t.integer "turn"
     t.integer "current_play"
     t.datetime "timeout"
+    t.integer "counter", default: 1
     t.json "meta", default: {}
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false

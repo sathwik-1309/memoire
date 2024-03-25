@@ -10,6 +10,7 @@ class GameTable < ActiveRecord::Migration[7.1]
       t.integer :turn
       t.integer :current_play
       t.datetime :timeout
+      t.integer :counter, default: 1
       t.json :meta, default: {}
       t.timestamps
     end

@@ -1,5 +1,5 @@
-SUITS = ['♠','♥','♦','♣']
-VALUES = ['A','2','3','4','5','6','7','8','9','10','J','Q','K']
+SUITS = %w[♠ ♥ ♦ ♣]
+VALUES = %w[A 2 3 4 5 6 7 8 9 10 J Q K]
 
 # game status
 START_ACK = "start_ack"
@@ -51,7 +51,7 @@ TIMEOUT_CD = 20
 TIMEOUT_DOR = 20
 TIMEOUT_PP = 10
 TIMEOUT_OFFLOAD = 20
-FINSIHED_SLEEP = 15
+FINISHED_SLEEP = 15
 
 # backend url
 BACKEND_URL = "http://localhost:3000"

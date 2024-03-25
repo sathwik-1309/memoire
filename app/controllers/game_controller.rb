@@ -17,7 +17,7 @@ class GameController < ApplicationController
   def create
     players = User.where(id: filter_params[:player_ids])
     if players.length < 4
-      bots = Util.pick_n_random_items(User.get_bots, 4-players.length)
+      bots = Util.pick_n_random_items(Bot.all, 4-players.length)
       players += bots
     end
 
@@ -27,16 +27,12 @@ class GameController < ApplicationController
     players = User.random_shuffle(players)
     @game.play_order = players.map{|player| player.id}
     @game.turn = @game.play_order[0]
-    begin
-      @game.save!
-      @game.create_game_users(players)
-      render_200("game created", {
-        "id": @game.id,
-        "players": players.map{|player| {'id'=> player.id, 'name'=>player.name} }
-      })
-    rescue StandardError => ex
-      render_400(ex.message)
-    end
+    @game.save!
+    @game.create_game_users(players)
+    render_200("game created", {
+      "id": @game.id,
+      "players": players.map{|player| {'id'=> player.id, 'name'=>player.name} }
+    })
   end
 
   def multiplayer_create
@@ -79,11 +75,40 @@ class GameController < ApplicationController
   end
 
   # def online_games
-  #   games = @current_user.games.filter{|game| game.status == ONGOING}
-  #   hash = games.map(&:attributes)
-  #   render json: hash, status: :ok
-  # rescue StandardError => e
-  #   render json: { error: e.message }, status: :bad_request
+  #   if @current_user.nil?
+  #     render_400("Unauthorized") and return
+  #   end
+  #   begin
+  #     games = @current_user.games.filter{|game| game.status == ONGOING}
+  #     hash = games.map{|game| game.attributes }
+  #     render_200(nil, hash)
+  #   rescue StandardError => ex
+  #     render_400(ex.message)
+  #   end
+  # end
+
+  # def close_offloads
+  #   game =  Game.find_by(id: params[:id])
+  #   if game.nil?
+  #     render_404("game not found") and return
+  #   end
+  #   begin
+  #     offloads = game.current_play.offloads
+  #     if offloads.present?
+  #       game.turn = game.update_turn_to_next(offloads[-1]['player1_id'])
+  #     else
+  #       game.turn = game.update_turn_to_next(game.turn)
+  #     end
+  #     game.stage = CARD_DRAW
+  #     game.save!
+  #     render_200("game stage and turn updated successfully",{
+  #       "stage" => game.stage,
+  #       "turn" => game.turn
+  #     })
+  #   rescue StandardError => ex
+  #     render_400(ex.message)
+  #   end
+  #
   # end
 
   def user_play
@@ -170,17 +195,19 @@ class GameController < ApplicationController
     if game.check_start_ack
       game.stage = INITIAL_VIEW
       game.status = ONGOING
+      game.counter += 1
       game.game_users.each do |gu|
         gu.status = GAME_USER_IS_PLAYING
         gu.save!
       end
       game.timeout = Time.now.utc + TIMEOUT_IV.seconds
       game.save!
+      # puts "Block 1 game timeout: #{game.timeout}"
+      # puts "Block 1 enqueued at time #{Time.now.utc + TIMEOUT_IV.seconds}"
+      CriticalWorker.perform_in(TIMEOUT_IV.seconds, 'move_to_card_draw', {'game_id' => game.id})
+      # puts "Block 1 after enque time #{Time.now.utc + TIMEOUT_IV.seconds}"
       ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": INITIAL_VIEW, "message": "game started"})
-
-      ThreadAction.bot_actions_initial_view(game)
-
-      ThreadAction.move_to_card_draw(game)
+      MyWorker.perform_in(1.second, 'bot_actions_initial_view', {'game_id' => game.id})
     end
     render_200("Waiting for other players to join...")
   end

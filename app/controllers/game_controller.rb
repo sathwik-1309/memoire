@@ -169,7 +169,7 @@ class GameController < ApplicationController
       table << temp
     end
     hash['table'] = table
-    render json: { message: "Game is finished", data: hash }, status: 200 and return if game.stage == FINISHED
+    render json: hash, status: 200 and return if game.stage == FINISHED
 
     if game.turn == @current_user.id
       play = game.current_play

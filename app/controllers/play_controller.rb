@@ -126,7 +126,6 @@ class PlayController < ApplicationController
 
   def powerplay
     game =  @current_user.games.find{|game| game.id == params[:game_id].to_i}
-    byebug
     if game.nil?
       render_404("game not found") and return
     end

@@ -20,7 +20,6 @@ class Bot < User
       if [200,201].include? response.code
         return true, JSON.parse(response.body)
       else
-        byebug
         #TODO: logging
         puts "Error: Request failed"
         return false

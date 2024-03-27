@@ -75,7 +75,7 @@ class GameBot < GameUser
   end
 
   def trigger_self_offload(card_hash)
-    url = "#{BACKEND_URL}/plays/#{self.game_id}/create_offloads?auth_token=#{self.user.authentication_token}"
+    url = "#{BACKEND_URL}/plays/#{self.game_id}/offload?auth_token=#{self.user.authentication_token}"
     params = { offload: {
       'type' => SELF_OFFLOAD,
       'offloaded_card_index' => card_hash['index'],
@@ -88,7 +88,7 @@ class GameBot < GameUser
   end
 
   def trigger_cross_offload(card_hash)
-    url = "#{BACKEND_URL}/plays/#{self.game_id}/create_offloads?auth_token=#{self.user.authentication_token}"
+    url = "#{BACKEND_URL}/plays/#{self.game_id}/offload?auth_token=#{self.user.authentication_token}"
     replace_index = self.find_offload_replace_index
     params = { auth_token: self.user.authentication_token,
                offload: {

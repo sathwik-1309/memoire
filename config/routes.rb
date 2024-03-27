@@ -32,8 +32,8 @@ Rails.application.routes.draw do
   scope :plays do
     get '/:game_id/index' => 'play#index'
     post '/:game_id/card_draw' => 'play#card_draw'
-    put '/:game_id/discard_or_replace' => 'play#discard_or_replace'
-    put '/:game_id/create_offloads' => 'play#create_offloads'
+    put '/:game_id/discard' => 'play#discard'
+    put '/:game_id/offload' => 'play#offload'
     put '/:game_id/powerplay' => 'play#powerplay'
     put '/:game_id/close_powerplay' => 'play#close_powerplay'
     put '/:game_id/showcards' => 'play#showcards'

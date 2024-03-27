@@ -2,13 +2,16 @@ version: '3.8'
 
 services:
   # Rails API service
-  web:
-    build: .
+  backend:
+    command: >
+      /bin/sh -c "rails db:create && rails db:migrate && puma -C config/puma.rb"
     ports:
       - "3000:3000"
     depends_on:
       - db
+      - redis
     environment:
+      DISABLE_DATABASE_ENVIRONMENT_CHECK: 1
       POSTGRES_DB: myapi # Set your database name
       POSTGRES_USER: root # Set your database user
       POSTGRES_PASSWORD: password # Set your database password
@@ -23,6 +26,18 @@ services:
     ports:
       - "5432:5432"
     environment:
+      DISABLE_DATABASE_ENVIRONMENT_CHECK: 1
       POSTGRES_DB: myapi # Set your database name
       POSTGRES_USER: root # Set your database user
       POSTGRES_PASSWORD: password # Set your database password
+
+  sidekiq:
+    command: bundle exec sidekiq -C config/sidekiq.yml
+    environment:
+      DISABLE_DATABASE_ENVIRONMENT_CHECK: 1
+      REDIS_URL: redis://redis:6379/1
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:latest

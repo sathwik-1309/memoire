@@ -23,5 +23,5 @@ COPY . .
 
 # Expose port 3000 to the Docker host, so it can be accessed from the outside.
 EXPOSE 3000
-
-CMD [ "rails" ,"s","-b","0.0.0.0"]
+#
+#CMD [ "rails" ,"s","-b","0.0.0.0"]

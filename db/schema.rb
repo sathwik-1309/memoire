@@ -37,7 +37,7 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_23_143821) do
     t.json "inplay", default: []
     t.json "play_order", default: []
     t.string "stage", default: "start_ack"
-    t.integer "turn"
+    t.string "turn"
     t.integer "current_play"
     t.datetime "timeout"
     t.integer "counter", default: 1

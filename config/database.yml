@@ -6,13 +6,13 @@ default: &default
 development:
   <<: *default
   host: <%= ENV['DB_HOST'] || 'localhost'%>
-  username: <%= ENV['POSTGRES_USER'] %>
-  password: <%= ENV['POSTGRES_PASSWORD'] %>
-  database: <%= ENV['POSTGRES_DB'] || 'devdb'%>
+  username: <%= ENV['POSTGRES_USER'] || 'root' %>
+  password: <%= ENV['POSTGRES_PASSWORD'] || 'password' %>
+  database: <%= ENV['POSTGRES_DB'] || 'myapi'%>
 
 test:
   <<: *default
-  database: testbd
+  database: testdb
 
 production:
   <<: *default

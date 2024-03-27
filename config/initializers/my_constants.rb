@@ -10,7 +10,7 @@ NEW = "new"
 
 # game stages
 CARD_DRAW = "card_draw"
-DOR = "discard_or_replace"
+DOR = "discard"
 OFFLOADS = "offloads"
 POWERPLAY = "powerplay"
 INITIAL_VIEW = "initial_view"

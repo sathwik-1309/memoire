@@ -37,7 +37,7 @@ class Game < ApplicationRecord
   def dor_follow_up
     event = {}
     event['type'] = DISCARD
-    self.create_discard_or_replace(User.find_by_id(self.turn), event)
+    self.create_discard(User.find_by_id(self.turn), event)
   end
 
   def powerplay_follow_up
@@ -155,14 +155,14 @@ class Game < ApplicationRecord
   def next_turn_player_id(player_id)
     total_players = self.play_order.length
     index = self.play_order.index(player_id)
-    return self.play_order[(index+1)%total_players]
+    self.play_order[(index+1)%total_players]
   end
 
   def current_play
-    return self.plays.last
+    self.plays.last
   end
 
-  def create_discard_or_replace(user, event)
+  def create_discard(user, event)
     play = self.current_play
     new_card = play.card_draw['card_drawn']
     if event['type'] == DISCARD
@@ -263,7 +263,7 @@ class Game < ApplicationRecord
   def bot_actions_discard(card_drawn)
     game_bot = self.game_bots.find_by(user_id: self.turn)
     return if game_bot.nil?
-    url = "#{BACKEND_URL}/plays/#{self.id}/discard_or_replace?auth_token=#{game_bot.user.authentication_token}"
+    url = "#{BACKEND_URL}/plays/#{self.id}/discard?auth_token=#{game_bot.user.authentication_token}"
     if POWERPLAY_CARD_VALUES.include? Util.get_card_number(card_drawn)
       params = {
         event: {

@@ -66,17 +66,6 @@ RSpec.describe GameController, type: :controller do
         expect(JSON.parse(response.body)['error']).to eq('Game allows 3-4 players only')
       end
     end
-
-    context 'when an exception is raised' do
-      before do
-        allow(Game).to receive(:create!).and_raise(StandardError, 'Something went wrong')
-      end
-      it 'returns a bad request status with an error message' do
-        post :multiplayer_create, params: { player_ids: [user1.id, user2.id, user3.id] }
-        expect(response).to have_http_status(:bad_request)
-        expect(JSON.parse(response.body)['error']).to eq('Something went wrong')
-      end
-    end
   end
 
   describe 'GET #details' do
@@ -156,20 +145,20 @@ RSpec.describe GameController, type: :controller do
   #   # end
   # end
 
-  describe "GET #view_initial" do
+  describe 'GET #view_initial' do
     let(:user) { create(:user) }
     let(:new_user) { create(:user) }
     let(:game) { create(:game, :ongoing) }
     before do
-      @game_user = create(:game_user, user: user, game: game)
+      @game_user = create(:game_user, user: user, game: game, cards: ['A ♣', '9 ♣', '3 ♣', '2 ♣'])
     end
 
 
     it "increments view count and returns card when view count is less than 2" do
-      get :view_initial, params: { id: game.id, auth_token: user.authentication_token }
+      get :view_initial, params: { id: game.id, auth_token: user.authentication_token, card_index: 1 }
       validate_response(response, 200)
       res = Oj.load(response.body)
-      expect(res['card']).to eq(@game_user.cards[0])
+      expect(res['card']).to eq('9 ♣')
       expect(@game_user.reload.view_count).to eq(1)
     end
 
@@ -186,6 +175,52 @@ RSpec.describe GameController, type: :controller do
       validate_response(response, 404)
       res = Oj.load(response.body)
       expect(res['error']).to eq("Game not found")
+    end
+  end
+
+  describe 'POST #start_ack' do
+    before :each do
+      @user = create(:user)
+      @bot1 = create(:bot)
+      @bot2 = create(:bot)
+      @game = create(:game)
+      @game_user = create(:game_user, user: @user, game: @game)
+      @game_bot1 = create(:game_bot, user: @bot1, game: @game)
+      @game_bot2 = create(:game_bot, user: @bot2, game: @game)
+    end
+
+    it 'returns error if unauthorized' do
+      post :start_ack, params: {id: @game.id}
+      expect(response).to have_http_status(400)
+      expect(JSON.parse(response.body)['error']).to eq('Unauthorized')
+    end
+
+    it 'returns error if game not found' do
+      post :start_ack, params: {auth_token: @game_user.user.authentication_token, id: 1000}
+      expect(response).to have_http_status(404)
+      expect(JSON.parse(response.body)['error']).to eq('Game not found')
+    end
+
+    it 'starts the game when last user triggers start-ack' do
+      post :start_ack, params: {auth_token: @game_user.user.authentication_token, id: @game.id}
+      expect(response).to have_http_status(200)
+      expect(JSON.parse(response.body)['message']).to eq('Waiting for other players to join...')
+      expect(@game.reload.stage).to eq(INITIAL_VIEW)
+      expect(@game.status).to eq(ONGOING)
+      expect(@game.game_users.map{|gu| gu.status}).to eq(Array.new(3, GAME_USER_IS_PLAYING))
+    end
+
+    it 'starts the game when last user triggers start-ack' do
+      user2 = create(:user)
+      game2 = create(:game)
+      game_user = create(:game_user, user: @user, game: game2)
+      game_user2 = create(:game_user, user: user2, game: game2)
+      game_bot = create(:game_bot, user: @bot2, game: game2)
+      post :start_ack, params: {auth_token: game_user.user.authentication_token, id: game2.id}
+      expect(response).to have_http_status(200)
+      expect(JSON.parse(response.body)['message']).to eq('Waiting for other players to join...')
+      expect(game_user.reload.status).to eq(GAME_USER_WAITING)
+      expect(game2.reload.status).to eq(NEW)
     end
   end
 end

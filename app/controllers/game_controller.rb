@@ -1,6 +1,7 @@
 class GameController < ApplicationController
   before_action :set_current_user
   before_action :check_current_user, except: [:index, :create, :multiplayer_create, :details]
+  before_action :check_game_user, only: [:user_play, :start_ack, :view_initial, :quit]
 
   def index
     games = if @current_user.present?
@@ -17,23 +18,23 @@ class GameController < ApplicationController
   def create
     players = User.where(id: filter_params[:player_ids])
     render json: { error: "Must send at least 1 valid user" }, status: :bad_request and return unless players.present?
+
     if players.length < 4
       bots = Util.pick_n_random_items(Bot.all, 4-players.length)
       players += bots
     end
-
-    @game = Game.new
-    @game.status = START_ACK
-    @game.pile = Game.new_pile
     players = User.random_shuffle(players)
-    @game.play_order = players.map{|player| player.id}
-    @game.turn = @game.play_order[0]
-    @game.save!
-    @game.create_game_users(players)
-    render_201("game created", {
-      "id": @game.id,
-      "players": players.map{|player| {'id'=> player.id, 'name'=>player.name} }
-    })
+
+    game = Game.create!(status: START_ACK,
+                        pile: Game.new_pile,
+                        play_order: players.map{|player| player.id},
+                        turn: players.play_order[0])
+    game.create_game_users(players)
+    render json: {
+      message: 'game created',
+      id: game.id,
+      players: players.map{|player| {'id'=> player.id, 'name'=>player.name}}
+    }, status: 201
   end
 
   def multiplayer_create
@@ -45,36 +46,28 @@ class GameController < ApplicationController
     else
       render json: { error: "Game allows 3-4 players only" }, status: :bad_request
     end
-  rescue StandardError => ex
-    render json: { error: ex.message }, status: :bad_request
   end
 
   def details
-    @game = Game.find_by(id: params[:id])
-    if @game.nil?
-      render json: { error: "Game not found" }, status: :not_found
-    else
-      render json: {
-        id: @game.id,
-        players: @game.game_users.map do |gu|
-          {
-            id: gu.user_id,
-            name: gu.user.name,
-            cards: gu.cards
-          }
-        end,
-        turn: @game.turn,
-        play_order: @game.play_order,
-        stage: @game.stage,
-        pile: @game.pile,
-        inplay: @game.inplay,
-        used: @game.used,
-        status: @game.status
-      }, status: :ok
-    end
-    #TODO: This is returning 200
-  rescue StandardError => ex
-    render json: { error: ex.message }, status: :bad_request
+    @game = Game.find_by_id(params[:id])
+    render json: { error: 'Game not found' }, status: 404 and return if @game.nil?
+    render json: {
+      id: @game.id,
+      players: @game.game_users.map do |gu|
+        {
+          id: gu.user_id,
+          name: gu.user.name,
+          cards: gu.cards
+        }
+      end,
+      turn: @game.turn,
+      play_order: @game.play_order,
+      stage: @game.stage,
+      pile: @game.pile,
+      inplay: @game.inplay,
+      used: @game.used,
+      status: @game.status
+    }, status: :ok
   end
 
   # def online_games
@@ -115,18 +108,12 @@ class GameController < ApplicationController
   # end
 
   def user_play
-    gu = @current_user.game_users.find_by_game_id(params[:id])
-    render json: { error: "Already quit from game" }, status: 400 and return if gu.status == DEAD
-    if gu.nil?
-      render json: { error: "Game not found" }, status: 400 and return
-    end
-
-    game = gu.game
+    game = @game_user.game
     render json: { error: "Game is dead" }, status: 400 and return if game.dead?
 
     hash = game.attributes.slice('stage', 'play_order', 'timeout', 'status')
     unless game.started?
-      hash['game_user_status'] = gu.status
+      hash['game_user_status'] = @game_user.status
       render json: hash, status: 200 and return
     end
 
@@ -152,18 +139,18 @@ class GameController < ApplicationController
     count = 0
     game_users = game.game_users
     while count < total_players
-      gu = game_users.find{|gu1| gu1.user_id == game.play_order[(index+count)%total_players]}
+      @game_user = game_users.find{|gu1| gu1.user_id == game.play_order[(index+count)%total_players]}
       temp = {}
-      temp['player_id'] = gu.user_id
-      temp['name'] = gu.user.name
-      temp['user_status'] = gu.status
-      if gu.status != GAME_USER_QUIT
+      temp['player_id'] = @game_user.user_id
+      temp['name'] = @game_user.user.name
+      temp['user_status'] = @game_user.status
+      if @game_user.status != GAME_USER_QUIT
         if game.finished?
-          temp['cards'] = gu.cards
-          temp['finished_at'] = game.meta['game_users_sorted'].index(gu.user_id) + 1
-          temp['points'] = gu.points
+          temp['cards'] = @game_user.cards
+          temp['finished_at'] = game.meta['game_users_sorted'].index(@game_user.user_id) + 1
+          temp['points'] = @game_user.points
         else
-          temp['cards'] = gu.cards.map{|card| card.present? ? 1 : 0}
+          temp['cards'] = @game_user.cards.map{|card| card.present? ? 1 : 0}
         end
       end
       count += 1
@@ -181,20 +168,17 @@ class GameController < ApplicationController
       when POWERPLAY
         play = game.current_play
         hash['powerplay_type'] = play.powerplay_type
+      else
+        # eat 5 star and do nothing
       end
     end
     render json: hash, status: 200
   end
 
   def start_ack
-    gu = @current_user.game_users.find_by_game_id(params[:id])
-    if gu.nil?
-      render_400("Game not found") and return
-    end
-
-    gu.status = GAME_USER_WAITING
-    game = gu.game
-    gu.save!
+    @game_user.status = GAME_USER_WAITING
+    game = @game_user.game
+    @game_user.save!
     if game.check_start_ack
       game.stage = INITIAL_VIEW
       game.status = ONGOING
@@ -208,42 +192,42 @@ class GameController < ApplicationController
       # puts "Block 1 game timeout: #{game.timeout}"
       # puts "Block 1 enqueued at time #{Time.now.utc + TIMEOUT_IV.seconds}"
       CriticalWorker.perform_in(TIMEOUT_IV.seconds, 'move_to_card_draw', {'game_id' => game.id})
-      # puts "Block 1 after enque time #{Time.now.utc + TIMEOUT_IV.seconds}"
+      # puts "Block 1 after enqueue time #{Time.now.utc + TIMEOUT_IV.seconds}"
       ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": INITIAL_VIEW, "message": "game started"})
       MyWorker.perform_in(1.second, 'bot_actions_initial_view', {'game_id' => game.id})
     end
-    render_200("Waiting for other players to join...")
+    render json: {message: 'Waiting for other players to join...'}, status: 200
   end
 
   def view_initial
-    gu = @current_user.game_users.find_by(game_id: params[:id])
-    return render json: { error: "Game not found" }, status: :not_found if gu.nil?
-    return render json: { error: "Already viewed 2 cards" }, status: 400 if gu.view_count >= 2
+    return render json: { error: "Already viewed 2 cards" }, status: 400 if @game_user.view_count >= 2
 
-    gu.increment!(:view_count)
-    render json: { card: gu.cards[filter_params[:card_index].to_i] }, status: 200
+    @game_user.increment!(:view_count)
+    render json: { card: @game_user.cards[filter_params[:card_index].to_i] }, status: 200
   end
 
   def quit
-    gu = @current_user.game_users.find_by_game_id(params[:id])
-    return render json: { error: "Game not found" }, status: :not_found if gu.nil?
-    gu.status = GAME_USER_QUIT
-    gu.meta['quit_time'] = Time.now.utc
-    gu.save!
-    if gu.game.active_users.length == 1
-      ActionCable.server.broadcast(gu.game.channel, {"message": "user quit", "id": 3})
+    @game_user.status = GAME_USER_QUIT
+    @game_user.meta['quit_time'] = Time.now.utc
+    @game_user.save!
+    if @game_user.game.active_users.length == 1
+      ActionCable.server.broadcast(@game_user.game.channel, {"message": "user quit", "id": 3})
     else
-      gu.game.finish_game('quit')
-      ActionCable.server.broadcast(gu.game.channel, {"message": "game finished", "id": 4})
+      @game_user.game.finish_game('quit')
+      ActionCable.server.broadcast(@game_user.game.channel, {"message": "game finished", "id": 4})
     end
-    render json: { message: "Quit Successfull" }, status: :ok
+    render json: { message: "Quit from game" }, status: :ok
   end
 
   private
   def check_current_user
-    if @current_user.nil?
-      render json: { error: "User not authorized" }, status: 400 and return
-    end
+    render json: { error: "Unauthorized" }, status: 400 if @current_user.nil?
+  end
+
+  def check_game_user
+    @game_user = @current_user.game_users.find_by_game_id(params[:id])
+    render json: { error: "Game not found" }, status: 404 and return if @game_user.nil?
+    render json: { error: "Already quit from game" }, status: 400 if @game_user.status == DEAD
   end
 
   def filter_params

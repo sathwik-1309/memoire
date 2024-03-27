@@ -16,6 +16,7 @@ class GameController < ApplicationController
 
   def create
     players = User.where(id: filter_params[:player_ids])
+    render json: { error: "Must send at least 1 valid user" }, status: :bad_request and return unless players.present?
     if players.length < 4
       bots = Util.pick_n_random_items(Bot.all, 4-players.length)
       players += bots

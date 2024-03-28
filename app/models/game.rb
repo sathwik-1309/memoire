@@ -238,41 +238,57 @@ class Game < ApplicationRecord
   end
 
   def finish_game(type, user = nil)
-    game_users = self.game_users
-    game_users.each do |game_user|
-      if game_user.status != GAME_USER_QUIT
-        game_user.points += game_user.count_cards
-        game_user.status = GAME_USER_FINISHED
-        game_user.save!
-      end
+    self.game_users.each do |game_user|
+      game_user.points += game_user.count_cards
+      game_user.status = GAME_USER_FINISHED
+      game_user.save!
     end
     self.status = FINISHED
     self.stage = FINISHED
-    self.meta['game_users_sorted'] = self.game_users_sorted.map{|gu| gu.user_id}
     if type == 'showcards'
       self.meta['show_called_by'] = {
         'player_id' => user.id,
-        'name' => user.name
+        'name' => user.name,
+        'is_winner' => true
       }
+
+      #TODO: points logic
+      # 1. false show even if joint least points
+      # 2. order others with least card if joint points
+      # 3. false show penalty not applied in self.meta['show_called_by']
+      show_user = self.game_users.find_by(user_id: user.id)
+      if show_user.id != self.game_users.order(points: :asc).first.id
+        show_user.points = show_user.points * (show_user.cards.filter{|card| card.present?}).length
+        show_user.save!
+        self.meta['show_called_by']['is_winner'] = false
+      end
+
     end
-    self.meta['finish_event'] = type if type
+    self.meta['game_users_sorted'] = self.game_users_sorted.map{|gu| gu.user_id}
+    self.meta['finish_event'] = type
     self.timeout = nil
     self.counter += 1
     self.save!
   end
 
-  def get_leaderboard_hash
+  def get_leaderboard_hash(current_user)
     arr = []
+    your_position = nil
     self.meta['game_users_sorted'].each_with_index do |user_id, index|
       game_user = self.game_users.find_by_user_id(user_id)
-      arr << {
+      hash = {
         'name' => game_user.user.name,
         'player_id' => game_user.user_id,
         'finished_at' => index+1,
         'points' => game_user.points
       }
+      if current_user.id == user_id
+        hash['yours'] = true
+        your_position = index+1
+      end
+      arr << hash
     end
-    arr
+    return arr, your_position
   end
 
   # bot actions

@@ -111,7 +111,7 @@ class GameController < ApplicationController
     game = @game_user.game
     render json: { error: "Game is dead" }, status: 400 and return if game.dead?
 
-    hash = game.attributes.slice('stage', 'play_order', 'timeout', 'status')
+    hash = game.attributes.slice('stage', 'play_order', 'timeout', 'status', 'turn')
     unless game.started?
       hash['game_user_status'] = @game_user.status
       render json: hash, status: 200 and return
@@ -121,8 +121,8 @@ class GameController < ApplicationController
     hash['table'] = game.get_user_play_table(@current_user)
 
     if game.finished?
-      hash['show_called_by'] = game.meta['show_called_by']
-      hash['leaderboard'] = game.get_leaderboard_hash
+      hash['show_called_by'] = game.meta['show_called_by'] if game.meta['finish_event'] == 'showcards'
+      hash['leaderboard'], hash['your_position'] = game.get_leaderboard_hash(@current_user)
       render json: hash, status: 200 and return
     end
 

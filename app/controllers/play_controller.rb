@@ -2,7 +2,6 @@ class PlayController < ApplicationController
   before_action :check_current_user
   before_action :check_game
   before_action :check_turn, except: [:index, :offload]
-  before_action :check_cards, only: [:showcards]
 
   def index
     plays = @game.plays.map{|play| play.attributes.slice(:id, :game_id, :turn, :show, :card_draw, :offloads, :powerplay)}
@@ -67,13 +66,14 @@ class PlayController < ApplicationController
       gu1.save!
     end
     offload['player1_id'] = @current_user.id
+    @game.finish_game('clean_up') if offload['is_correct'] and gu1.cards.filter{|card| card.present?}.length == 0
     play.offloads << offload if offload['is_correct']
     play.save!
     @game.counter += 1
     @game.save!
-    offload['timeout'] = @game.timeout
+    # offload['timeout'] = @game.timeout
     ActionCable.server.broadcast(@game.channel, {"timeout": @game.timeout, "stage": OFFLOADS, "turn": @current_user.authentication_token, "message": 5})
-    render_200(nil, offload)
+    render json: offload, status: 200
   end
 
   def powerplay
@@ -115,6 +115,8 @@ class PlayController < ApplicationController
 
   def showcards
     render json: { error: "Cannot Show after drawing card" }, status: 400 and return if @game.stage != CARD_DRAW
+    render json: { error: "Cannot call show when you have 4 or more cards" }, status: 400 and return if GameUser.find_by(game_id: @game.id, user_id: @current_user.id).cards.filter{|card| card.present?}.length >= 4
+
     @game.finish_game('showcards', @current_user)
     ActionCable.server.broadcast(@game.channel, {"stage": FINISHED, "id": 10})
     render json: { message: "Game is in finished state"}, status: 200
@@ -131,11 +133,6 @@ class PlayController < ApplicationController
   def check_turn
     return if @current_user.id == @game.turn
     render json: { error: "Can only trigger on your turn" }, status: 400
-  end
-
-  def check_cards
-    return if GameUser.find_by(game_id: @game.id, user_id: @current_user.id).cards.filter{|card| card.present?}.length < 4
-    render json: { message: "Cannot call show when you have 4 or more cards" }, status: 400
   end
 
   def filter_params

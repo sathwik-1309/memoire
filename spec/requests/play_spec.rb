@@ -9,7 +9,7 @@ RSpec.describe PlayController, type: :controller do
       @bot1 = create(:bot)
       @bot2 = create(:bot)
       @game = create(:game, pile: Game.new_pile)
-      @game_user = create(:game_bot, user: @user, game: @game, status: GAME_USER_IS_PLAYING)
+      @game_user = create(:game_user, user: @user, game: @game, status: GAME_USER_IS_PLAYING)
       @game_bot1 = create(:game_bot, user: @bot1, game: @game, status: GAME_USER_IS_PLAYING)
       @game_bot2 = create(:game_bot, user: @bot2, game: @game, status: GAME_USER_IS_PLAYING)
       @game.stage = CARD_DRAW
@@ -42,7 +42,7 @@ RSpec.describe PlayController, type: :controller do
       @game.save!
       post :card_draw, params: {auth_token: @game_user.user.authentication_token, game_id: @game.id}
       expect(response).to have_http_status(400)
-      expect(JSON.parse(response.body)['error']).to eq('Can draw a card only in card_draw stage')
+      expect(JSON.parse(response.body)['error']).to eq("Can draw a card only in #{CARD_DRAW} stage")
     end
 
     it 'returns 200 with right params' do
@@ -61,7 +61,7 @@ RSpec.describe PlayController, type: :controller do
       @bot1 = create(:bot)
       @bot2 = create(:bot)
       @game = create(:game, stage: DOR, turn: @user.id)
-      @game_user = create(:game_bot, user: @user, game: @game, status: GAME_USER_IS_PLAYING, cards: ['A ♣', 'Q ♣', '3 ♣', '2 ♣'])
+      @game_user = create(:game_user, user: @user, game: @game, status: GAME_USER_IS_PLAYING, cards: ['A ♣', 'Q ♣', '3 ♣', '2 ♣'])
       @game_bot1 = create(:game_bot, user: @bot1, game: @game, status: GAME_USER_IS_PLAYING)
       @game_bot2 = create(:game_bot, user: @bot2, game: @game, status: GAME_USER_IS_PLAYING)
       @play = create(:play, game_id: @game.id, card_draw: {'card_drawn' => '2 ♣'})
@@ -100,6 +100,7 @@ RSpec.describe PlayController, type: :controller do
       put :discard, params: {auth_token: @game_user.user.authentication_token, game_id: @game.id, event: event}
       expect(response).to have_http_status(200)
       expect(JSON.parse(response.body)['discarded_card']).to eq('2 ♣')
+      expect(@play.reload.card_draw).to eq({"card_drawn"=>"2 ♣", "discarded_card"=>"2 ♣", "event"=>"discard"})
       expect(@game.reload.stage).to eq(OFFLOADS)
     end
 
@@ -110,6 +111,7 @@ RSpec.describe PlayController, type: :controller do
       put :discard, params: {auth_token: @game_user.user.authentication_token, game_id: @game.id, event: event}
       expect(response).to have_http_status(200)
       expect(JSON.parse(response.body)['discarded_card']).to eq('8 ♣')
+      expect(@play.reload.card_draw).to eq({"card_drawn"=>"8 ♣", "discarded_card"=>"8 ♣", "event"=>"discard"})
       expect(@game.reload.stage).to eq(POWERPLAY)
     end
 
@@ -119,6 +121,7 @@ RSpec.describe PlayController, type: :controller do
       expect(response).to have_http_status(200)
       expect(JSON.parse(response.body)['discarded_card']).to eq('Q ♣')
       expect(@game.reload.stage).to eq(OFFLOADS)
+      expect(@play.reload.card_draw).to eq({"card_drawn"=>"2 ♣", "discarded_card"=>"Q ♣", "replaced_card"=>"2 ♣", "event"=>"replace"})
     end
 
   end
@@ -129,7 +132,7 @@ RSpec.describe PlayController, type: :controller do
       @bot1 = create(:bot)
       @bot2 = create(:bot)
       @game = create(:game, used: ['A ♥'], stage: OFFLOADS, turn: @bot2.id)
-      @game_user = create(:game_bot, user: @user, game: @game, status: GAME_USER_IS_PLAYING, cards: ['A ♣', 'Q ♣', '3 ♣', '2 ♣'])
+      @game_user = create(:game_user, user: @user, game: @game, status: GAME_USER_IS_PLAYING, cards: ['A ♣', 'Q ♣', '3 ♣', '2 ♣'])
       @game_bot1 = create(:game_bot, user: @bot1, game: @game, status: GAME_USER_IS_PLAYING)
       @game_bot2 = create(:game_bot, user: @bot2, game: @game, status: GAME_USER_IS_PLAYING)
       @play = create(:play, game_id: @game.id)
@@ -225,7 +228,7 @@ RSpec.describe PlayController, type: :controller do
       @bot1 = create(:bot)
       @bot2 = create(:bot)
       @game = create(:game, used: ['A ♥'], stage: POWERPLAY, turn: @user.id)
-      @game_user = create(:game_bot, user: @user, game: @game, status: GAME_USER_IS_PLAYING, cards: ['A ♣', 'Q ♣', '3 ♣', '2 ♣'])
+      @game_user = create(:game_user, user: @user, game: @game, status: GAME_USER_IS_PLAYING, cards: ['A ♣', 'Q ♣', '3 ♣', '2 ♣'])
       @game_bot1 = create(:game_bot, user: @bot1, game: @game, status: GAME_USER_IS_PLAYING, cards: ['2 ♣', '4 ♣', '9 ♣', '10 ♣'])
       @game_bot2 = create(:game_bot, user: @bot2, game: @game, status: GAME_USER_IS_PLAYING)
       @play = create(:play, game_id: @game.id, card_draw: {'card_drawn'=> '7 ♥'})
@@ -317,6 +320,61 @@ RSpec.describe PlayController, type: :controller do
       expect(response).to have_http_status(200)
       expect(@game_user.reload.cards).to eq(['A ♣', '9 ♣', '3 ♣', '2 ♣'])
       expect(@game_bot1.reload.cards).to eq(['2 ♣', '4 ♣', 'Q ♣', '10 ♣'])
+    end
+  end
+
+  context  'PUT #showcards' do
+    before :each do
+      @user = create(:user)
+      @bot1 = create(:bot)
+      @bot2 = create(:bot)
+      @game = create(:game, used: ['A ♥'], stage: CARD_DRAW, turn: @user.id)
+      @game_user = create(:game_user, user: @user, game: @game, status: GAME_USER_IS_PLAYING, cards: ['A ♣', 'Q ♣', '3 ♣', '2 ♣'])
+      @game_bot1 = create(:game_bot, user: @bot1, game: @game, status: GAME_USER_IS_PLAYING, cards: ['2 ♣', '4 ♣', '9 ♣', '10 ♣'])
+      @game_bot2 = create(:game_bot, user: @bot2, game: @game, status: GAME_USER_IS_PLAYING, cards: ['K ♣', 'J ♣', '10 ♣', '8 ♣'])
+      @play = create(:play, game_id: @game.id, card_draw: {'card_drawn'=> '7 ♥'})
+    end
+
+    it 'returns error if unauthorized' do
+      put :showcards, params: {game_id: @game.id}
+      expect(response).to have_http_status(400)
+      expect(JSON.parse(response.body)['error']).to eq('Unauthorized')
+    end
+
+    it 'returns error if game not found' do
+      put :showcards, params: {auth_token: @game_user.user.authentication_token, game_id: 1000}
+      expect(response).to have_http_status(404)
+      expect(JSON.parse(response.body)['error']).to eq('Game not found')
+    end
+
+    it 'returns error if not your turn' do
+      @game.turn = @bot1.id
+      @game.save!
+      put :showcards, params: {auth_token: @game_user.user.authentication_token, game_id: @game.id}
+      expect(response).to have_http_status(400)
+      expect(JSON.parse(response.body)['error']).to eq('Can only trigger on your turn')
+    end
+
+    it 'returns error when stage is not card_draw' do
+      @game.stage = DOR
+      @game.save!
+      put :showcards, params: {auth_token: @game_user.user.authentication_token, game_id: @game.id}
+      expect(response).to have_http_status(400)
+      expect(JSON.parse(response.body)['error']).to eq('Cannot Show after drawing card')
+    end
+
+    it 'returns error when you have 4 or more cards' do
+      put :showcards, params: {auth_token: @game_user.user.authentication_token, game_id: @game.id}
+      expect(response).to have_http_status(400)
+      expect(JSON.parse(response.body)['error']).to eq('Cannot call show when you have 4 or more cards')
+    end
+
+    it 'returns error when you have 4 or more cards' do
+      @game_user.cards = ['A ♣', nil, '3 ♣', '2 ♣']
+      @game_user.save!
+      put :showcards, params: {auth_token: @game_user.user.authentication_token, game_id: @game.id}
+      expect(response).to have_http_status(200)
+      expect(JSON.parse(response.body)['message']).to eq('Game is in finished state')
     end
   end
 end

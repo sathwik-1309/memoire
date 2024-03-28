@@ -42,7 +42,7 @@ RSpec.describe PlayController, type: :controller do
       @game.save!
       post :card_draw, params: {auth_token: @game_user.user.authentication_token, game_id: @game.id}
       expect(response).to have_http_status(400)
-      expect(JSON.parse(response.body)['error']).to eq('Can draw a card only in card_draw stage')
+      expect(JSON.parse(response.body)['error']).to eq("Can draw a card only in #{CARD_DRAW} stage")
     end
 
     it 'returns 200 with right params' do

@@ -9,7 +9,7 @@ DEAD = "dead"
 NEW = "new"
 
 # game stages
-CARD_DRAW = "card_draw"
+CARD_DRAW = "draw"
 DOR = "discard"
 OFFLOADS = "offloads"
 POWERPLAY = "powerplay"

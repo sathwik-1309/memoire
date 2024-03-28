@@ -117,9 +117,7 @@ class GameController < ApplicationController
       render json: hash, status: 200 and return
     end
 
-    if game.finished?
-      hash['show_called_by'] = game.meta['show_called_by']
-    end
+    hash['show_called_by'] = game.meta['show_called_by'] if game.finished?
 
     hash['turn'] = User.find_by_id(game.turn).name
     hash['turn_id'] = game.turn

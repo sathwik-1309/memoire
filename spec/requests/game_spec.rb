@@ -223,4 +223,36 @@ RSpec.describe GameController, type: :controller do
       expect(game2.reload.status).to eq(NEW)
     end
   end
+
+  describe 'GET #user_play' do
+    before :each do
+      @user1 = create(:user)
+      @user2 = create(:user)
+      @user3 = create(:user)
+      @game = create(:game, stage: CARD_DRAW, turn: @user1.id, status: ONGOING, play_order: [@user1.id, @user2.id, @user3.id])
+      @game_user1 = create(:game_user, user: @user1, game: @game)
+      @game_user2 = create(:game_user, user: @user2, game: @game)
+      @game_user3 = create(:game_user, user: @user3, game: @game)
+    end
+
+    it 'returns error if unauthorized' do
+      get :user_play, params: {id: @game.id}
+      expect(response).to have_http_status(400)
+      expect(JSON.parse(response.body)['error']).to eq('Unauthorized')
+    end
+
+    it 'returns error if game not found' do
+      get :user_play, params: {auth_token: @game_user1.user.authentication_token, id: 1000}
+      expect(response).to have_http_status(404)
+      expect(JSON.parse(response.body)['error']).to eq('Game not found')
+    end
+
+    it 'should get user_play on card_draw on your turn' do
+      get :user_play, params: {auth_token: @game_user1.user.authentication_token, id: @game.id}
+      expect(response).to have_http_status(200)
+      res = JSON.parse(response.body)
+      expect(res['stage']).to eq(CARD_DRAW)
+      expect(res['your_turn']).to eq(true)
+    end
+  end
 end

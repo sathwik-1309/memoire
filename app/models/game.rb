@@ -227,7 +227,7 @@ class Game < ApplicationRecord
         'name' => user.name
       }
     end
-    self.meta['finish_event'] = type
+    self.meta['finish_event'] = type if type
     self.timeout = nil
     self.counter += 1
     self.save!

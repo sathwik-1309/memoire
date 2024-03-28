@@ -210,7 +210,7 @@ class GameController < ApplicationController
     @game_user.status = GAME_USER_QUIT
     @game_user.meta['quit_time'] = Time.now.utc
     @game_user.save!
-    if @game_user.game.active_users.length == 1
+    if @game_user.game.active_users.length > 1
       ActionCable.server.broadcast(@game_user.game.channel, {"message": "user quit", "id": 3})
     else
       @game_user.game.finish_game('quit')

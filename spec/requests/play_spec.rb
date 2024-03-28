@@ -319,4 +319,59 @@ RSpec.describe PlayController, type: :controller do
       expect(@game_bot1.reload.cards).to eq(['2 ♣', '4 ♣', 'Q ♣', '10 ♣'])
     end
   end
+
+  context  'PUT #showcards' do
+    before :each do
+      @user = create(:user)
+      @bot1 = create(:bot)
+      @bot2 = create(:bot)
+      @game = create(:game, used: ['A ♥'], stage: CARD_DRAW, turn: @user.id)
+      @game_user = create(:game_user, user: @user, game: @game, status: GAME_USER_IS_PLAYING, cards: ['A ♣', 'Q ♣', '3 ♣', '2 ♣'])
+      @game_bot1 = create(:game_bot, user: @bot1, game: @game, status: GAME_USER_IS_PLAYING, cards: ['2 ♣', '4 ♣', '9 ♣', '10 ♣'])
+      @game_bot2 = create(:game_bot, user: @bot2, game: @game, status: GAME_USER_IS_PLAYING, cards: ['K ♣', 'J ♣', '10 ♣', '8 ♣'])
+      @play = create(:play, game_id: @game.id, card_draw: {'card_drawn'=> '7 ♥'})
+    end
+
+    it 'returns error if unauthorized' do
+      put :showcards, params: {game_id: @game.id}
+      expect(response).to have_http_status(400)
+      expect(JSON.parse(response.body)['error']).to eq('Unauthorized')
+    end
+
+    it 'returns error if game not found' do
+      put :showcards, params: {auth_token: @game_user.user.authentication_token, game_id: 1000}
+      expect(response).to have_http_status(404)
+      expect(JSON.parse(response.body)['error']).to eq('Game not found')
+    end
+
+    it 'returns error if not your turn' do
+      @game.turn = @bot1.id
+      @game.save!
+      put :showcards, params: {auth_token: @game_user.user.authentication_token, game_id: @game.id}
+      expect(response).to have_http_status(400)
+      expect(JSON.parse(response.body)['error']).to eq('Can only trigger on your turn')
+    end
+
+    it 'returns error when stage is not card_draw' do
+      @game.stage = DOR
+      @game.save!
+      put :showcards, params: {auth_token: @game_user.user.authentication_token, game_id: @game.id}
+      expect(response).to have_http_status(400)
+      expect(JSON.parse(response.body)['error']).to eq('Cannot Show after drawing card')
+    end
+
+    it 'returns error when you have 4 or more cards' do
+      put :showcards, params: {auth_token: @game_user.user.authentication_token, game_id: @game.id}
+      expect(response).to have_http_status(400)
+      expect(JSON.parse(response.body)['error']).to eq('Cannot call show when you have 4 or more cards')
+    end
+
+    it 'returns error when you have 4 or more cards' do
+      @game_user.cards = ['A ♣', nil, '3 ♣', '2 ♣']
+      @game_user.save!
+      put :showcards, params: {auth_token: @game_user.user.authentication_token, game_id: @game.id}
+      expect(response).to have_http_status(200)
+      expect(JSON.parse(response.body)['message']).to eq('Game is in finished state')
+    end
+  end
 end

@@ -35,7 +35,7 @@ Rails.application.routes.draw do
     put '/:game_id/discard' => 'play#discard'
     put '/:game_id/offload' => 'play#offload'
     put '/:game_id/powerplay' => 'play#powerplay'
-    put '/:game_id/close_powerplay' => 'play#close_powerplay'
+    # put '/:game_id/close_powerplay' => 'play#close_powerplay'
     put '/:game_id/showcards' => 'play#showcards'
   end
 

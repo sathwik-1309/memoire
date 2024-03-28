@@ -117,45 +117,14 @@ class GameController < ApplicationController
       render json: hash, status: 200 and return
     end
 
-    hash['show_called_by'] = game.meta['show_called_by'] if game.finished?
-
-    hash['turn'] = User.find_by_id(game.turn).name
-    hash['turn_id'] = game.turn
     hash['last_used'] = game.used[-1]
-    if game.stage == CARD_DRAW
-      if game.plays.length > 1
-        play = game.plays[-2]
-        hash['offloads'] = play.offloads
-      end
-    elsif game.stage == OFFLOADS
-      powerplay = game.current_play.powerplay
-      hash['powerplay'] = powerplay
+    hash['table'] = game.get_user_play_table(@current_user)
+
+    if game.finished?
+      hash['show_called_by'] = game.meta['show_called_by']
+      hash['leaderboard'] = game.get_leaderboard_hash
+      render json: hash, status: 200 and return
     end
-    table = []
-    index = game.play_order.index(@current_user.id)
-    total_players = game.play_order.length
-    count = 0
-    game_users = game.game_users
-    while count < total_players
-      @game_user = game_users.find{|gu1| gu1.user_id == game.play_order[(index+count)%total_players]}
-      temp = {}
-      temp['player_id'] = @game_user.user_id
-      temp['name'] = @game_user.user.name
-      temp['user_status'] = @game_user.status
-      if @game_user.status != GAME_USER_QUIT
-        if game.finished?
-          temp['cards'] = @game_user.cards
-          temp['finished_at'] = game.meta['game_users_sorted'].index(@game_user.user_id) + 1
-          temp['points'] = @game_user.points
-        else
-          temp['cards'] = @game_user.cards.map{|card| card.present? ? 1 : 0}
-        end
-      end
-      count += 1
-      table << temp
-    end
-    hash['table'] = table
-    render json: hash, status: 200 and return if game.stage == FINISHED
 
     if game.turn == @current_user.id
       play = game.current_play
@@ -164,7 +133,6 @@ class GameController < ApplicationController
       when DOR
         hash['card_drawn'] = play.card_draw['card_drawn']
       when POWERPLAY
-        play = game.current_play
         hash['powerplay_type'] = play.powerplay_type
       else
         # eat 5 star and do nothing

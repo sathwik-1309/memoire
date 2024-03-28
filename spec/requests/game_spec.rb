@@ -230,9 +230,9 @@ RSpec.describe GameController, type: :controller do
       @user2 = create(:user)
       @user3 = create(:user)
       @game = create(:game, stage: CARD_DRAW, turn: @user1.id, status: ONGOING, play_order: [@user1.id, @user2.id, @user3.id])
-      @game_user1 = create(:game_user, user: @user1, game: @game)
-      @game_user2 = create(:game_user, user: @user2, game: @game)
-      @game_user3 = create(:game_user, user: @user3, game: @game)
+      @game_user1 = create(:game_user, user: @user1, game: @game, cards: ['A ♣', 'Q ♣', '3 ♣', '2 ♣'], status: GAME_USER_IS_PLAYING)
+      @game_user2 = create(:game_user, user: @user2, game: @game, cards: ['2 ♣', '4 ♣', '9 ♣', '10 ♣'], status: GAME_USER_IS_PLAYING)
+      @game_user3 = create(:game_user, user: @user3, game: @game, cards: ['6 ♣', '3 ♣', nil, '8 ♣'], status: GAME_USER_IS_PLAYING)
     end
 
     it 'returns error if unauthorized' do
@@ -247,12 +247,308 @@ RSpec.describe GameController, type: :controller do
       expect(JSON.parse(response.body)['error']).to eq('Game not found')
     end
 
-    it 'should get user_play on card_draw on your turn' do
-      get :user_play, params: {auth_token: @game_user1.user.authentication_token, id: @game.id}
-      expect(response).to have_http_status(200)
-      res = JSON.parse(response.body)
-      expect(res['stage']).to eq(CARD_DRAW)
-      expect(res['your_turn']).to eq(true)
+    context 'card_draw' do
+      it 'should get user_play on your turn' do
+        get :user_play, params: {auth_token: @game_user1.user.authentication_token, id: @game.id}
+        expect(response).to have_http_status(200)
+        res = JSON.parse(response.body)
+        expect(res['stage']).to eq(CARD_DRAW)
+        expect(res['your_turn']).to eq(true)
+        expect(res['table']).to eq([{ 'player_id' => @user1.id,
+                                      'name' => @user1.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'turn' => true,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user2.id,
+                                      'name' => @user2.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user3.id,
+                                      'name' => @user3.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 0, 1]}])
+      end
+
+      it 'should get user_play on others turn' do
+        get :user_play, params: {auth_token: @game_user2.user.authentication_token, id: @game.id}
+        expect(response).to have_http_status(200)
+        res = JSON.parse(response.body)
+        expect(res['stage']).to eq(CARD_DRAW)
+        expect(res['your_turn']).to eq(nil)
+        expect(res['table']).to eq([{ 'player_id' => @user2.id,
+                                      'name' => @user2.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user3.id,
+                                      'name' => @user3.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 0, 1]},
+                                    { 'player_id' => @user1.id,
+                                      'name' => @user1.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'turn' => true,
+                                      'cards'=>[1, 1, 1, 1]}])
+      end
     end
+
+    context 'discard' do
+      before :each do
+        @game.stage = DOR
+        @game.save!
+        @play = create(:play, game_id: @game.id, card_draw: {'card_drawn'=> '7 ♥'})
+      end
+
+      it 'should get user_play on your turn' do
+        get :user_play, params: {auth_token: @game_user1.user.authentication_token, id: @game.id}
+        expect(response).to have_http_status(200)
+        res = JSON.parse(response.body)
+        expect(res['stage']).to eq(DOR)
+        expect(res['your_turn']).to eq(true)
+        expect(res['card_drawn']).to eq('7 ♥')
+        expect(res['table']).to eq([{ 'player_id' => @user1.id,
+                                      'name' => @user1.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'turn' => true,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user2.id,
+                                      'name' => @user2.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user3.id,
+                                      'name' => @user3.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 0, 1]}])
+      end
+
+      it 'should get user_play on others turn' do
+        get :user_play, params: {auth_token: @game_user2.user.authentication_token, id: @game.id}
+        expect(response).to have_http_status(200)
+        res = JSON.parse(response.body)
+        expect(res['stage']).to eq(DOR)
+        expect(res['your_turn']).to eq(nil)
+        expect(res['card_drawn']).to eq(nil)
+        expect(res['table']).to eq([{ 'player_id' => @user2.id,
+                                      'name' => @user2.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user3.id,
+                                      'name' => @user3.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 0, 1]},
+                                    { 'player_id' => @user1.id,
+                                      'name' => @user1.name,
+                                      'turn' => true,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 1, 1]}])
+      end
+    end
+
+    context 'powerplay' do
+      before :each do
+        @game.stage = POWERPLAY
+        @game.save!
+        @play = create(:play, game_id: @game.id, card_draw: {'card_drawn'=> '10 ♥', 'discarded_card' => '10 ♥'})
+      end
+
+      it 'should get user_play on your turn for view_others' do
+        get :user_play, params: {auth_token: @game_user1.user.authentication_token, id: @game.id}
+        expect(response).to have_http_status(200)
+        res = JSON.parse(response.body)
+        expect(res['stage']).to eq(POWERPLAY)
+        expect(res['your_turn']).to eq(true)
+        expect(res['powerplay_type']).to eq(VIEW_OTHERS)
+        expect(res['table']).to eq([{ 'player_id' => @user1.id,
+                                      'name' => @user1.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'turn' => true,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user2.id,
+                                      'name' => @user2.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user3.id,
+                                      'name' => @user3.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 0, 1]}])
+      end
+
+      it 'should get user_play on your turn for view_self' do
+        @play.card_draw = {'card_drawn'=> '8 ♥', 'discarded_card' => '8 ♥'}
+        @play.save!
+        get :user_play, params: {auth_token: @game_user1.user.authentication_token, id: @game.id}
+        expect(response).to have_http_status(200)
+        res = JSON.parse(response.body)
+        expect(res['stage']).to eq(POWERPLAY)
+        expect(res['your_turn']).to eq(true)
+        expect(res['powerplay_type']).to eq(VIEW_SELF)
+        expect(res['table']).to eq([{ 'player_id' => @user1.id,
+                                      'name' => @user1.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'turn' => true,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user2.id,
+                                      'name' => @user2.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user3.id,
+                                      'name' => @user3.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 0, 1]}])
+      end
+
+      it 'should get user_play on your turn for swap_cards' do
+        @play.card_draw = {'card_drawn'=> 'J ♥', 'discarded_card' => 'J ♥'}
+        @play.save!
+        get :user_play, params: {auth_token: @game_user1.user.authentication_token, id: @game.id}
+        expect(response).to have_http_status(200)
+        res = JSON.parse(response.body)
+        expect(res['stage']).to eq(POWERPLAY)
+        expect(res['your_turn']).to eq(true)
+        expect(res['powerplay_type']).to eq(SWAP_CARDS)
+        expect(res['table']).to eq([{ 'player_id' => @user1.id,
+                                      'name' => @user1.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'turn' => true,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user2.id,
+                                      'name' => @user2.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user3.id,
+                                      'name' => @user3.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 0, 1]}])
+      end
+
+      it 'should get user_play on your turn for view_others' do
+        get :user_play, params: {auth_token: @game_user2.user.authentication_token, id: @game.id}
+        expect(response).to have_http_status(200)
+        res = JSON.parse(response.body)
+        expect(res['stage']).to eq(POWERPLAY)
+        expect(res['your_turn']).to eq(nil)
+        expect(res['table']).to eq([{ 'player_id' => @user2.id,
+                                      'name' => @user2.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user3.id,
+                                      'name' => @user3.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 0, 1]},
+                                    { 'player_id' => @user1.id,
+                                      'name' => @user1.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'turn' => true,
+                                      'cards'=>[1, 1, 1, 1]}])
+      end
+
+    end
+
+    context 'offload' do
+      before :each do
+        @game.stage = OFFLOADS
+        @game.save!
+        @play = create(:play, game_id: @game.id, card_draw: {'card_drawn'=> '2 ♥', 'discarded_card' => '2 ♥'})
+      end
+
+      it 'should get user_play on your turn' do
+        get :user_play, params: {auth_token: @game_user1.user.authentication_token, id: @game.id}
+        expect(response).to have_http_status(200)
+        res = JSON.parse(response.body)
+        expect(res['stage']).to eq(OFFLOADS)
+        expect(res['your_turn']).to eq(true)
+        expect(res['table']).to eq([{ 'player_id' => @user1.id,
+                                      'name' => @user1.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'turn' => true,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user2.id,
+                                      'name' => @user2.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user3.id,
+                                      'name' => @user3.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 0, 1]}])
+      end
+
+      it 'should get user_play on others turn' do
+        get :user_play, params: {auth_token: @game_user2.user.authentication_token, id: @game.id}
+        expect(response).to have_http_status(200)
+        res = JSON.parse(response.body)
+        expect(res['stage']).to eq(OFFLOADS)
+        expect(res['your_turn']).to eq(nil)
+        expect(res['table']).to eq([{ 'player_id' => @user2.id,
+                                      'name' => @user2.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 1, 1]},
+                                    { 'player_id' => @user3.id,
+                                      'name' => @user3.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'cards'=>[1, 1, 0, 1]},
+                                    { 'player_id' => @user1.id,
+                                      'name' => @user1.name,
+                                      'user_status' => GAME_USER_IS_PLAYING,
+                                      'turn' => true,
+                                      'cards' => [1, 1, 1, 1]}])
+      end
+    end
+
+    context 'finished' do
+      before :each do
+        @game_user1.cards = ['A ♣', nil, nil, '8 ♣']
+        @game_user1.save!
+        @game.finish_game('showcards', @user1)
+      end
+
+      it 'after showcards' do
+        get :user_play, params: {auth_token: @game_user1.user.authentication_token, id: @game.id}
+        expect(response).to have_http_status(200)
+        res = JSON.parse(response.body)
+        expect(res['stage']).to eq(FINISHED)
+        expect(res['status']).to eq(FINISHED)
+        expect(res['show_called_by']).to eq({'player_id' => @user1.id, 'name' => @user1.name})
+        expect(res['table']).to eq([{'player_id' => @user1.id,
+                                     'name' => @user1.name,
+                                     'user_status'=> FINISHED,
+                                     'cards' => ["A ♣", nil, nil, "8 ♣"]},
+                                     {'player_id' => @user2.id,
+                                      'name' => @user2.name,
+                                      'user_status'=> FINISHED,
+                                      'cards' => ['2 ♣', '4 ♣', '9 ♣', '10 ♣']},
+                                      {'player_id' => @user3.id,
+                                       'name' => @user3.name,
+                                       'user_status'=> FINISHED,
+                                       'cards' => ["6 ♣", "3 ♣", nil, "8 ♣"]}])
+        expect(res['leaderboard']).to eq([{'name' => @user1.name, 'player_id' => @user1.id, 'finished_at'=>1, 'points'=>9},
+                                          {'name' => @user3.name, 'player_id' => @user3.id, 'finished_at'=>2, 'points'=>17},
+                                          {'name' => @user2.name, 'player_id' => @user2.id, 'finished_at'=>3, 'points'=>25}])
+      end
+
+      it 'after showcards for other user' do
+        get :user_play, params: {auth_token: @game_user2.user.authentication_token, id: @game.id}
+        expect(response).to have_http_status(200)
+        res = JSON.parse(response.body)
+        expect(res['stage']).to eq(FINISHED)
+        expect(res['status']).to eq(FINISHED)
+        expect(res['show_called_by']).to eq({'player_id' => @user1.id, 'name' => @user1.name})
+        expect(res['table']).to eq([{'player_id' => @user2.id,
+                                     'name' => @user2.name,
+                                     'user_status'=> FINISHED,
+                                     'cards' => ['2 ♣', '4 ♣', '9 ♣', '10 ♣']},
+                                    {'player_id' => @user3.id,
+                                     'name' => @user3.name,
+                                     'user_status'=> FINISHED,
+                                     'cards' => ["6 ♣", "3 ♣", nil, "8 ♣"]},
+                                    {'player_id' => @user1.id,
+                                     'name' => @user1.name,
+                                     'user_status'=> FINISHED,
+                                     'cards' => ["A ♣", nil, nil, "8 ♣"]}])
+        expect(res['leaderboard']).to eq([{'name' => @user1.name, 'player_id' => @user1.id, 'finished_at'=>1, 'points'=>9},
+                                          {'name' => @user3.name, 'player_id' => @user3.id, 'finished_at'=>2, 'points'=>17},
+                                          {'name' => @user2.name, 'player_id' => @user2.id, 'finished_at'=>3, 'points'=>25}])
+      end
+    end
+
   end
+
 end

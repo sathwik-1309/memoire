@@ -100,6 +100,7 @@ RSpec.describe PlayController, type: :controller do
       put :discard, params: {auth_token: @game_user.user.authentication_token, game_id: @game.id, event: event}
       expect(response).to have_http_status(200)
       expect(JSON.parse(response.body)['discarded_card']).to eq('2 ♣')
+      expect(@play.reload.card_draw).to eq({"card_drawn"=>"2 ♣", "discarded_card"=>"2 ♣", "event"=>"discard"})
       expect(@game.reload.stage).to eq(OFFLOADS)
     end
 
@@ -110,6 +111,7 @@ RSpec.describe PlayController, type: :controller do
       put :discard, params: {auth_token: @game_user.user.authentication_token, game_id: @game.id, event: event}
       expect(response).to have_http_status(200)
       expect(JSON.parse(response.body)['discarded_card']).to eq('8 ♣')
+      expect(@play.reload.card_draw).to eq({"card_drawn"=>"8 ♣", "discarded_card"=>"8 ♣", "event"=>"discard"})
       expect(@game.reload.stage).to eq(POWERPLAY)
     end
 
@@ -119,6 +121,7 @@ RSpec.describe PlayController, type: :controller do
       expect(response).to have_http_status(200)
       expect(JSON.parse(response.body)['discarded_card']).to eq('Q ♣')
       expect(@game.reload.stage).to eq(OFFLOADS)
+      expect(@play.reload.card_draw).to eq({"card_drawn"=>"2 ♣", "discarded_card"=>"Q ♣", "replaced_card"=>"2 ♣", "event"=>"replace"})
     end
 
   end

@@ -152,6 +152,34 @@ class Game < ApplicationRecord
     self.save!
   end
 
+  def get_user_play_table(user)
+    table = []
+    index = self.play_order.index(user.id)
+    total_players = self.play_order.length
+    count = 0
+    while count < total_players
+      game_user = self.game_users.find{|gu1| gu1.user_id == self.play_order[(index+count)%total_players]}
+      temp = {}
+      temp['player_id'] = game_user.user_id
+      temp['name'] = game_user.user.name
+      temp['user_status'] = game_user.status
+      if game_user.status != GAME_USER_QUIT
+        if self.finished?
+          temp['cards'] = game_user.cards
+          # temp['finished_at'] = self.meta['game_users_sorted'].index(game_user.user_id) + 1
+          # temp['points'] = game_user.points
+        else
+          temp['turn'] = true if self.turn == game_user.user_id
+          temp['cards'] = game_user.cards.map{|card| card.present? ? 1 : 0}
+
+        end
+      end
+      count += 1
+      table << temp
+    end
+    table
+  end
+
   def next_turn_player_id(player_id)
     total_players = self.play_order.length
     index = self.play_order.index(player_id)
@@ -231,6 +259,20 @@ class Game < ApplicationRecord
     self.timeout = nil
     self.counter += 1
     self.save!
+  end
+
+  def get_leaderboard_hash
+    arr = []
+    self.meta['game_users_sorted'].each_with_index do |user_id, index|
+      game_user = self.game_users.find_by_user_id(user_id)
+      arr << {
+        'name' => game_user.user.name,
+        'player_id' => game_user.user_id,
+        'finished_at' => index+1,
+        'points' => game_user.points
+      }
+    end
+    arr
   end
 
   # bot actions

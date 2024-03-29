@@ -151,4 +151,56 @@ class GameBot < GameUser
     true
   end
 
+  def update_others_unknown(user, index)
+    layout_memory = self.meta['memory']['layout'].find{|hash| hash['player_id'] == user.id}['cards']
+    discarded_card = layout_memory[index]
+    if discarded_card['seen']
+      layout_memory[index] = {'seen' => false, 'index' => index}
+      self.meta['memory']['cards']['other'][Util.get_card_number(discarded_card['value'])].delete({'player_id'=>user.id, 'index'=>index})
+    end
+  end
+
+  def update_swap_info(card1_hash, card2_hash)
+    #TODO:
+  end
+
+  def update_other_self_offload(user, index)
+    layout = self.meta['memory']['layout'].find{|hash| hash['player_id'] == user.id}['cards']
+    offloaded_card = layout[index]
+    if offloaded_card['seen']
+      self.meta['memory']['cards']['other'][Util.get_card_number(offloaded_card['value'])].delete({'player_id'=>user.id, 'index'=>index})
+    end
+    layout[index] = nil
+  end
+
+  def update_other_cross_offload(user1, user2, offloaded_card_index, replaced_card_index)
+    layout1 = self.meta['memory']['layout'].find{|hash| hash['player_id'] == user1.id}
+    layout2 = self.meta['memory']['layout'].find{|hash| hash['player_id'] == user2.id}
+    replaced_card = layout1['cards'][replaced_card_index]
+    offloaded_card = layout2['cards'][offloaded_card_index]
+
+    if offloaded_card['seen']
+      offloaded_card_value = Util.get_card_number(offloaded_card['value'])
+      if user2.id == self.user_id
+        self.meta['memory']['cards']['self'][offloaded_card_value].delete({'index'=>offloaded_card_index})
+      else
+        self.meta['memory']['cards']['other'][offloaded_card_value].delete({'player_id'=>user2.id,'index'=>offloaded_card_index})
+      end
+    end
+
+    if replaced_card['seen']
+      replaced_card_value = Util.get_card_number(replaced_card['value'])
+      self.meta['memory']['cards']['other'][replaced_card_value].delete({'player_id'=>user1.id,'index'=>replaced_card_index})
+      if user2.id == self.user_id
+        self.meta['memory']['cards']['self'][replaced_card_value] << {'index'=>offloaded_card_index}
+      else
+        self.meta['memory']['cards']['other'][replaced_card_value] << {'player_id'=>user2.id, 'index'=>offloaded_card_index}
+      end
+      layout2['cards'][offloaded_card_index] = {'seen'=> true, 'value'=>replaced_card['value'], 'index'=>offloaded_card_index}
+    else
+      layout2['cards'][offloaded_card_index] = {'seen'=> false, 'index'=> offloaded_card_index}
+    end
+    layout1['cards'][replaced_card_index] = nil
+  end
+
 end

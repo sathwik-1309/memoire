@@ -391,4 +391,26 @@ class Game < ApplicationRecord
     end
   end
 
+  # bot memory updates
+  def bot_mem_update_discard(user, index)
+    self.game_bots.where.not(user_id: user.id).each do |game_bot|
+      game_bot.update_others_unknown(user, index)
+      game_bot.save!
+    end
+  end
+
+  def bot_mem_update_self_offload(user, index)
+    self.game_bots.where.not(user_id: user.id).each do |game_bot|
+      game_bot.update_other_self_offload(user, index)
+      game_bot.save!
+    end
+  end
+
+  def bot_mem_update_cross_offload(user1, user2, offload_index, replace_index)
+    self.game_bots.where.not(user_id: user1.id).each do |game_bot|
+      game_bot.update_other_cross_offload(user1, user2, offload_index, replace_index)
+      game_bot.save!
+    end
+  end
+
 end

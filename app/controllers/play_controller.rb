@@ -17,7 +17,7 @@ class PlayController < ApplicationController
     @game.timeout = Time.now.utc + TIMEOUT_DOR.seconds
     @game.counter += 1
     @game.save!
-    ActionCable.server.broadcast(@game.channel, {"timeout": @game.timeout, "stage": DOR, "turn": @current_user.authentication_token, "message": "stage #{DOR}"})
+    ActionCable.server.broadcast(@game.channel, {message: "#{@current_user.name.titleize} drew a card!", type: CARD_DRAW, counter: @game.counter})
     MyWorker.perform_in(Util.random_wait(DOR).seconds, 'bot_actions_discard', {'game_id' => @game.id, 'card_drawn' => drawn_card})
     render json: { card_drawn: drawn_card, timeout: @game.timeout, stage: @game.stage, }, status: 200
   end
@@ -39,11 +39,13 @@ class PlayController < ApplicationController
         # false offload
         gu1.add_extra_card_or_penalty
         offload['is_correct'] = false
+        message = "#{@current_user.name.titleize} FAILED SELF OFFLOAD on card ##{offloaded_card_index+1}"
       else
         gu1.cards[offloaded_card_index] = nil
         @game.used << offload_card
         @game.inplay.delete(offload_card)
         offload['is_correct'] = true
+        message = "#{@current_user.name.titleize} did SELF OFFLOAD on card ##{offloaded_card_index+1}"
       end
       gu1.save!
     else
@@ -54,6 +56,7 @@ class PlayController < ApplicationController
       if Util.get_card_value(offload_card)[0] != Util.get_card_value(@game.used[-1])[0]
         gu1.add_extra_card_or_penalty
         offload['is_correct'] = false
+        message = "#{@current_user.name.titleize} FAILED CROSS OFFLOAD on #{gu2.user.name.titleize}'s' card ##{offloaded_card_index+1}"
       else
         replaced_card = gu1.cards[replaced_card_index]
         gu1.cards[replaced_card_index] = nil
@@ -62,6 +65,7 @@ class PlayController < ApplicationController
         @game.inplay.delete(offload_card)
         @game.used << offload_card
         offload['is_correct'] = true
+        message = "#{@current_user.name.titleize} did CROSS OFFLOAD on #{gu2.user.name.titleize}'s' card ##{offloaded_card_index+1} and replaced with their card ##{replaced_card_index=1}"
       end
       gu1.save!
     end
@@ -72,7 +76,7 @@ class PlayController < ApplicationController
     @game.counter += 1
     @game.save!
     # offload['timeout'] = @game.timeout
-    ActionCable.server.broadcast(@game.channel, {"timeout": @game.timeout, "stage": OFFLOADS, "turn": @current_user.authentication_token, "message": 5})
+    ActionCable.server.broadcast(@game.channel, {message: message, type: OFFLOADS, counter: @game.counter})
     render json: offload, status: 200
   end
 
@@ -100,14 +104,17 @@ class PlayController < ApplicationController
       gu2.cards[card2_index] = replace_card1
       gu1.save!
       gu2.save!
+      ActionCable.server.broadcast(@game.channel, {message: "#{@current_user.name.titleize} SWAPPED #{gu1.user.name.titleize}'s card ##{powerplay['card1_index'].to_i} with #{gu2.user.name.titleize}'s card ##{powerplay['card2_index'].to_i}", type: POWERPLAY, counter: @game.counter})
       render json: { message: 'swapped cards successfully', timeout: @game.timeout }, status: 200
     elsif powerplay['event'] == VIEW_SELF
       gu1 = @game.game_users.find_by_user_id(@game.turn)
       view_card = gu1.cards[powerplay['view_card_index'].to_i]
+      ActionCable.server.broadcast(@game.channel, {message: "#{@current_user.name.titleize} VIEWED their card ##{powerplay['view_card_index'].to_i}", type: POWERPLAY, counter: @game.counter})
       render json: { card: view_card, timeout: @game.timeout }, status: 200
     else
       gu2 = @game.game_users.find_by_user_id(powerplay['player_id'])
       view_card = gu2.cards[powerplay['view_card_index'].to_i]
+      ActionCable.server.broadcast(@game.channel, {message: "#{@current_user.name.titleize} VIEWED #{gu2.user.name.titleize}'s card ##{powerplay['view_card_index'].to_i}", type: POWERPLAY, counter: @game.counter})
       render json: { card: view_card, timeout: @game.timeout }, status: 200
     end
 
@@ -115,7 +122,7 @@ class PlayController < ApplicationController
 
   def showcards
     render json: { error: "Cannot Show after drawing card" }, status: 400 and return if @game.stage != CARD_DRAW
-    render json: { error: "Cannot call show when you have 4 or more cards" }, status: 400 and return if GameUser.find_by(game_id: @game.id, user_id: @current_user.id).cards.filter{|card| card.present?}.length >= 4
+    render json: { error: "Cannot Show with 4 or more cards" }, status: 400 and return if GameUser.find_by(game_id: @game.id, user_id: @current_user.id).cards.filter{|card| card.present?}.length >= 4
 
     @game.finish_game('showcards', @current_user)
     ActionCable.server.broadcast(@game.channel, {"stage": FINISHED, "id": 10})

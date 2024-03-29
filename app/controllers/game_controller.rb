@@ -111,7 +111,7 @@ class GameController < ApplicationController
     game = @game_user.game
     render json: { error: "Game is dead" }, status: 400 and return if game.dead?
 
-    hash = game.attributes.slice('stage', 'play_order', 'timeout', 'status')
+    hash = game.attributes.slice('stage', 'play_order', 'timeout', 'status', 'turn')
     unless game.started?
       hash['game_user_status'] = @game_user.status
       render json: hash, status: 200 and return
@@ -121,8 +121,8 @@ class GameController < ApplicationController
     hash['table'] = game.get_user_play_table(@current_user)
 
     if game.finished?
-      hash['show_called_by'] = game.meta['show_called_by']
-      hash['leaderboard'] = game.get_leaderboard_hash
+      hash['show_called_by'] = game.meta['show_called_by'] if game.meta['finish_event'] == 'showcards'
+      hash['leaderboard'], hash['your_position'] = game.get_leaderboard_hash(@current_user)
       render json: hash, status: 200 and return
     end
 
@@ -159,7 +159,7 @@ class GameController < ApplicationController
       # puts "Block 1 enqueued at time #{Time.now.utc + TIMEOUT_IV.seconds}"
       CriticalWorker.perform_in(TIMEOUT_IV.seconds, 'move_to_card_draw', {'game_id' => game.id})
       # puts "Block 1 after enqueue time #{Time.now.utc + TIMEOUT_IV.seconds}"
-      ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": INITIAL_VIEW, "message": "game started"})
+      ActionCable.server.broadcast(game.channel, {message: "game started"})
       MyWorker.perform_in(1.second, 'bot_actions_initial_view', {'game_id' => game.id})
     end
     render json: {message: 'Waiting for other players to join...'}, status: 200

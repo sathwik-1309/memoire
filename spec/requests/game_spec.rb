@@ -497,16 +497,16 @@ RSpec.describe GameController, type: :controller do
       before :each do
         @game_user1.cards = ['A ♣', nil, nil, '8 ♣']
         @game_user1.save!
-        @game.finish_game('showcards', @user1)
       end
 
       it 'after showcards' do
+        @game.finish_game('showcards', @user1)
         get :user_play, params: {auth_token: @game_user1.user.authentication_token, id: @game.id}
         expect(response).to have_http_status(200)
         res = JSON.parse(response.body)
         expect(res['stage']).to eq(FINISHED)
         expect(res['status']).to eq(FINISHED)
-        expect(res['show_called_by']).to eq({'player_id' => @user1.id, 'name' => @user1.name})
+        expect(res['show_called_by']).to eq({'player_id' => @user1.id, 'name' => @user1.name, "is_winner"=>true})
         expect(res['table']).to eq([{'player_id' => @user1.id,
                                      'name' => @user1.name,
                                      'user_status'=> FINISHED,
@@ -519,18 +519,44 @@ RSpec.describe GameController, type: :controller do
                                        'name' => @user3.name,
                                        'user_status'=> FINISHED,
                                        'cards' => ["6 ♣", "3 ♣", nil, "8 ♣"]}])
-        expect(res['leaderboard']).to eq([{'name' => @user1.name, 'player_id' => @user1.id, 'finished_at'=>1, 'points'=>9},
+        expect(res['leaderboard']).to eq([{'name' => @user1.name, 'player_id' => @user1.id, 'finished_at'=>1, 'points'=>9, 'yours'=>true},
                                           {'name' => @user3.name, 'player_id' => @user3.id, 'finished_at'=>2, 'points'=>17},
                                           {'name' => @user2.name, 'player_id' => @user2.id, 'finished_at'=>3, 'points'=>25}])
       end
 
+      it 'after showcards for false show' do
+        @game.finish_game('showcards', @user3)
+        get :user_play, params: {auth_token: @game_user1.user.authentication_token, id: @game.id}
+        expect(response).to have_http_status(200)
+        res = JSON.parse(response.body)
+        expect(res['stage']).to eq(FINISHED)
+        expect(res['status']).to eq(FINISHED)
+        expect(res['show_called_by']).to eq({'player_id' => @user3.id, 'name' => @user3.name, "is_winner"=>false})
+        expect(res['table']).to eq([{'player_id' => @user1.id,
+                                     'name' => @user1.name,
+                                     'user_status'=> FINISHED,
+                                     'cards' => ["A ♣", nil, nil, "8 ♣"]},
+                                    {'player_id' => @user2.id,
+                                     'name' => @user2.name,
+                                     'user_status'=> FINISHED,
+                                     'cards' => ['2 ♣', '4 ♣', '9 ♣', '10 ♣']},
+                                    {'player_id' => @user3.id,
+                                     'name' => @user3.name,
+                                     'user_status'=> FINISHED,
+                                     'cards' => ["6 ♣", "3 ♣", nil, "8 ♣"]}])
+        expect(res['leaderboard']).to eq([{'name' => @user1.name, 'player_id' => @user1.id, 'finished_at'=>1, 'points'=>9},
+                                          {'name' => @user2.name, 'player_id' => @user2.id, 'finished_at'=>2, 'points'=>25},
+                                          {'name' => @user3.name, 'player_id' => @user3.id, 'finished_at'=>3, 'points'=>51}])
+      end
+
       it 'after showcards for other user' do
+        @game.finish_game('showcards', @user1)
         get :user_play, params: {auth_token: @game_user2.user.authentication_token, id: @game.id}
         expect(response).to have_http_status(200)
         res = JSON.parse(response.body)
         expect(res['stage']).to eq(FINISHED)
         expect(res['status']).to eq(FINISHED)
-        expect(res['show_called_by']).to eq({'player_id' => @user1.id, 'name' => @user1.name})
+        expect(res['show_called_by']).to eq({'player_id' => @user1.id, 'name' => @user1.name, 'is_winner'=> true})
         expect(res['table']).to eq([{'player_id' => @user2.id,
                                      'name' => @user2.name,
                                      'user_status'=> FINISHED,
@@ -545,7 +571,7 @@ RSpec.describe GameController, type: :controller do
                                      'cards' => ["A ♣", nil, nil, "8 ♣"]}])
         expect(res['leaderboard']).to eq([{'name' => @user1.name, 'player_id' => @user1.id, 'finished_at'=>1, 'points'=>9},
                                           {'name' => @user3.name, 'player_id' => @user3.id, 'finished_at'=>2, 'points'=>17},
-                                          {'name' => @user2.name, 'player_id' => @user2.id, 'finished_at'=>3, 'points'=>25}])
+                                          {'name' => @user2.name, 'player_id' => @user2.id, 'finished_at'=>3, 'points'=>25, 'yours'=>true}])
       end
     end
 

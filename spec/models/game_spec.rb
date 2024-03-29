@@ -22,7 +22,7 @@ RSpec.describe Game, type: :model do
       @game.finish_game('showcards', @user)
       expect(@game.reload.status).to eq(FINISHED)
       expect(@game.timeout).to eq(nil)
-      expect(@game.meta['show_called_by']).to eq({"player_id"=>@user.id, "name"=>@user.name})
+      expect(@game.meta['show_called_by']).to eq({"player_id"=>@user.id, "name"=>@user.name, "is_winner"=>true})
       expect(@game.meta['game_users_sorted']).to eq([@user.id, @bot2.id, @bot1.id])
       expect(@game.meta['finish_event']).to eq('showcards')
     end

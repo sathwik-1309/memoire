@@ -25,12 +25,12 @@ class Game < ApplicationRecord
   end
 
   def card_draw_follow_up
+    ActionCable.server.broadcast(self.channel, {message: "#{User.find_by_id(self.turn).name.titleize} did not draw any card!", counter: self.counter+1, type: CARD_DRAW})
     self.turn = self.next_turn_player_id(self.turn)
     self.timeout = Time.now.utc + TIMEOUT_CD.seconds
     self.counter += 1
     self.save!
     CriticalWorker.perform_in(TIMEOUT_CD.seconds, 'card_draw_follow_up', {'game_id' => self.id, 'counter' => self.counter})
-    ActionCable.server.broadcast(self.channel, {"timeout": self.timeout, "stage": CARD_DRAW, "id": 9})
     MyWorker.perform_in(Util.random_wait(CARD_DRAW).seconds, 'bot_actions_card_draw', {'game_id' => self.id})
   end
 
@@ -45,7 +45,7 @@ class Game < ApplicationRecord
     self.timeout = Time.now.utc + TIMEOUT_OFFLOAD.seconds
     self.counter += 1
     self.save!
-    ActionCable.server.broadcast(self.channel, {"timeout": self.timeout, "stage": OFFLOADS, "id": 11})
+    ActionCable.server.broadcast(self.channel, {message: "stage changed to #{OFFLOADS}"})
     MyWorker.perform_async('bot_actions_offload', {'game_id' => self.id})
   end
 
@@ -59,7 +59,7 @@ class Game < ApplicationRecord
     self.timeout = Time.now.utc + TIMEOUT_CD.seconds
     self.counter += 1
     self.save!
-    ActionCable.server.broadcast(self.channel, {"timeout": self.timeout, "stage": CARD_DRAW, "id": 12})
+    ActionCable.server.broadcast(self.channel, {message: "stage changed to #{CARD_DRAW}"})
     MyWorker.perform_in(Util.random_wait(CARD_DRAW).seconds, 'bot_actions_card_draw', {'game_id' => self.id})
   end
 
@@ -67,14 +67,14 @@ class Game < ApplicationRecord
     self.status = DEAD
     self.counter += 1
     self.save!
-    ActionCable.server.broadcast(self.channel, {"stage": DEAD, "id": 13})
+    # ActionCable.server.broadcast(self.channel, {message: "game moved to #{DEAD} stage"})
   end
 
   def move_to_card_draw
     self.stage = CARD_DRAW
     self.timeout = Time.now.utc + TIMEOUT_CD.seconds
     self.save!
-    ActionCable.server.broadcast(self.channel, {"timeout": self.timeout, "stage": CARD_DRAW, "turn": User.find_by_id(self.turn).authentication_token, "message": "stage #{CARD_DRAW}"})
+    ActionCable.server.broadcast(self.channel, {message: "stage changed to #{CARD_DRAW}"})
     MyWorker.perform_in(Util.random_wait(CARD_DRAW).seconds, 'bot_actions_card_draw', {'game_id' => self.id})
   end
 
@@ -196,6 +196,7 @@ class Game < ApplicationRecord
     if event['type'] == DISCARD
       play.card_draw['discarded_card'] = new_card
       discarded_card = new_card
+      message = "#{user.name.titleize} discarded new card!"
     else
       gu = self.game_users.find_by(user_id: user.id)
       discarded_card = gu.cards[event['discarded_card_index'].to_i]
@@ -205,6 +206,7 @@ class Game < ApplicationRecord
       play.card_draw['replaced_card'] = new_card
       self.inplay.delete(discarded_card)
       self.inplay << new_card
+      message = "#{user.name.titleize} discarded their card ##{event['discarded_card_index'].to_i+1} !"
     end
     self.used << discarded_card
     play.card_draw['event'] = event['type']
@@ -218,7 +220,7 @@ class Game < ApplicationRecord
     self.counter += 1
     self.save!
     play.save!
-    ActionCable.server.broadcast(self.channel, {"timeout": self.timeout, "stage": self.stage, "turn": user.authentication_token, "id": 4})
+    ActionCable.server.broadcast(self.channel, {message: message, type: DOR, counter: self.counter})
 
     if self.stage == POWERPLAY
       MyWorker.perform_in(Util.random_wait(POWERPLAY).seconds, 'bot_actions_powerplay', {'game_id' => self.id, 'powerplay_type' => self.current_play.powerplay_type})
@@ -238,41 +240,57 @@ class Game < ApplicationRecord
   end
 
   def finish_game(type, user = nil)
-    game_users = self.game_users
-    game_users.each do |game_user|
-      if game_user.status != GAME_USER_QUIT
-        game_user.points += game_user.count_cards
-        game_user.status = GAME_USER_FINISHED
-        game_user.save!
-      end
+    self.game_users.each do |game_user|
+      game_user.points += game_user.count_cards
+      game_user.status = GAME_USER_FINISHED
+      game_user.save!
     end
     self.status = FINISHED
     self.stage = FINISHED
-    self.meta['game_users_sorted'] = self.game_users_sorted.map{|gu| gu.user_id}
     if type == 'showcards'
       self.meta['show_called_by'] = {
         'player_id' => user.id,
-        'name' => user.name
+        'name' => user.name,
+        'is_winner' => true
       }
+
+      #TODO: points logic
+      # 1. false show even if joint least points
+      # 2. order others with least card if joint points
+      # 3. false show penalty not applied in self.meta['show_called_by']
+      show_user = self.game_users.find_by(user_id: user.id)
+      if show_user.id != self.game_users.order(points: :asc).first.id
+        show_user.points = show_user.points * (show_user.cards.filter{|card| card.present?}).length
+        show_user.save!
+        self.meta['show_called_by']['is_winner'] = false
+      end
+
     end
-    self.meta['finish_event'] = type if type
+    self.meta['game_users_sorted'] = self.game_users_sorted.map{|gu| gu.user_id}
+    self.meta['finish_event'] = type
     self.timeout = nil
     self.counter += 1
     self.save!
   end
 
-  def get_leaderboard_hash
+  def get_leaderboard_hash(current_user)
     arr = []
+    your_position = nil
     self.meta['game_users_sorted'].each_with_index do |user_id, index|
       game_user = self.game_users.find_by_user_id(user_id)
-      arr << {
+      hash = {
         'name' => game_user.user.name,
         'player_id' => game_user.user_id,
         'finished_at' => index+1,
         'points' => game_user.points
       }
+      if current_user.id == user_id
+        hash['yours'] = true
+        your_position = index+1
+      end
+      arr << hash
     end
-    arr
+    return arr, your_position
   end
 
   # bot actions

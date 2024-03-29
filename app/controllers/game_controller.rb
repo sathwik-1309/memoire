@@ -159,7 +159,7 @@ class GameController < ApplicationController
       # puts "Block 1 enqueued at time #{Time.now.utc + TIMEOUT_IV.seconds}"
       CriticalWorker.perform_in(TIMEOUT_IV.seconds, 'move_to_card_draw', {'game_id' => game.id})
       # puts "Block 1 after enqueue time #{Time.now.utc + TIMEOUT_IV.seconds}"
-      ActionCable.server.broadcast(game.channel, {"timeout": game.timeout, "stage": INITIAL_VIEW, "message": "game started"})
+      ActionCable.server.broadcast(game.channel, {message: "game started"})
       MyWorker.perform_in(1.second, 'bot_actions_initial_view', {'game_id' => game.id})
     end
     render json: {message: 'Waiting for other players to join...'}, status: 200

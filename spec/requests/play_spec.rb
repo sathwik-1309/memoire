@@ -366,7 +366,7 @@ RSpec.describe PlayController, type: :controller do
     it 'returns error when you have 4 or more cards' do
       put :showcards, params: {auth_token: @game_user.user.authentication_token, game_id: @game.id}
       expect(response).to have_http_status(400)
-      expect(JSON.parse(response.body)['error']).to eq('Cannot call show when you have 4 or more cards')
+      expect(JSON.parse(response.body)['error']).to eq('Cannot Show with 4 or more cards')
     end
 
     it 'returns error when you have 4 or more cards' do

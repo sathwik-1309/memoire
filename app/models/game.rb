@@ -161,7 +161,7 @@ class Game < ApplicationRecord
       game_user = self.game_users.find{|gu1| gu1.user_id == self.play_order[(index+count)%total_players]}
       temp = {}
       temp['player_id'] = game_user.user_id
-      temp['name'] = game_user.user.name.titleize
+      temp['name'] = game_user.user.name
       temp['user_status'] = game_user.status
       if game_user.status != GAME_USER_QUIT
         if self.finished?
@@ -279,7 +279,7 @@ class Game < ApplicationRecord
     self.meta['game_users_sorted'].each_with_index do |user_id, index|
       game_user = self.game_users.find_by_user_id(user_id)
       hash = {
-        'name' => game_user.user.name.titleize,
+        'name' => game_user.user.name,
         'player_id' => game_user.user_id,
         'finished_at' => index+1,
         'points' => game_user.points

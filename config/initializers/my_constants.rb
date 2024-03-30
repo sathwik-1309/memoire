@@ -24,8 +24,8 @@ GAME_USER_FINISHED = "finished"
 GAME_USER_QUIT = "quit"
 
 # offload types
-SELF_OFFLOAD = "self offload"
-CROSS_OFFLOAD = "cross offload"
+SELF_OFFLOAD = "self_offload"
+CROSS_OFFLOAD = "cross_offload"
 
 # powerplay types
 SWAP_CARDS = "swap_cards"
@@ -47,10 +47,10 @@ GAME_CHANNEL = "game_channel"
 
 # timeouts
 TIMEOUT_IV = 20
-TIMEOUT_CD = 20
-TIMEOUT_DOR = 20
-TIMEOUT_PP = 10
-TIMEOUT_OFFLOAD = 20
+TIMEOUT_CD = 12
+TIMEOUT_DOR = 12
+TIMEOUT_PP = 12
+TIMEOUT_OFFLOAD = 12
 FINISHED_SLEEP = 30
 
 # backend url

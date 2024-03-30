@@ -85,7 +85,7 @@ class Game < ApplicationRecord
         full_deck << "#{value} #{suit}"
       end
     end
-    return Game.random_shuffle(full_deck)
+    return Game.random_shuffle(full_deck+full_deck)
   end
 
   def channel

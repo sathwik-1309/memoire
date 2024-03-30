@@ -36,15 +36,15 @@ module Util
   def self.random_wait(stage)
     case stage
     when CARD_DRAW
-      return rand(2..7)
+      return rand(1..3)
     when DOR
-      return rand(3..8)
+      return rand(2..4)
     when INITIAL_VIEW
       return rand(1..4)
     when POWERPLAY
       return rand(2..4)
     when OFFLOADS
-      return rand(2..4)
+      return rand(1..2)
     else
       return 5
     end

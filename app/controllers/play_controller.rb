@@ -109,7 +109,7 @@ class PlayController < ApplicationController
       gu2.cards[card2_index] = replace_card1
       gu1.save!
       gu2.save!
-      #TODO: bot_mem update for swap cards
+      @game.bot_mem_update_swap_cards(gu1.user, gu2.user, card1_index, card2_index)
       ActionCable.server.broadcast(@game.channel, {message: "#{@current_user.name.titleize} SWAPPED #{gu1.user.name.titleize}'s card ##{powerplay['card1_index'].to_i} with #{gu2.user.name.titleize}'s card ##{powerplay['card2_index'].to_i}", type: POWERPLAY, counter: @game.counter})
       render json: { message: 'swapped cards successfully', timeout: @game.timeout }, status: 200
     elsif powerplay['event'] == VIEW_SELF

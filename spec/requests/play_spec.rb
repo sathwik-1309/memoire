@@ -241,10 +241,17 @@ RSpec.describe PlayController, type: :controller do
       @user = create(:user)
       @bot1 = create(:bot)
       @bot2 = create(:bot)
-      @game = create(:game, used: ['A ♥'], stage: POWERPLAY, turn: @user.id)
+      @game = create(:game, used: ['A ♥'], stage: POWERPLAY, turn: @user.id, play_order: [@user.id, @bot1.id, @bot2.id])
+      @memory = {
+        'cards' => {
+          'self' => Util.card_memory_init,
+          'other' => Util.card_memory_init,
+        },
+        'layout' => @game.layout_memory_init
+      }
       @game_user = create(:game_user, user: @user, game: @game, status: GAME_USER_IS_PLAYING, cards: ['A ♣', 'Q ♣', '3 ♣', '2 ♣'])
-      @game_bot1 = create(:game_bot, user: @bot1, game: @game, status: GAME_USER_IS_PLAYING, cards: ['2 ♣', '4 ♣', '9 ♣', '10 ♣'])
-      @game_bot2 = create(:game_bot, user: @bot2, game: @game, status: GAME_USER_IS_PLAYING)
+      @game_bot1 = create(:game_bot, user: @bot1, game: @game, status: GAME_USER_IS_PLAYING, cards: ['2 ♣', '4 ♣', '9 ♣', '10 ♣'], meta: {'memory'=> @memory})
+      @game_bot2 = create(:game_bot, user: @bot2, game: @game, status: GAME_USER_IS_PLAYING, meta: {'memory'=> @memory})
       @play = create(:play, game_id: @game.id, card_draw: {'card_drawn'=> '7 ♥'})
     end
 

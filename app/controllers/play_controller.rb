@@ -39,12 +39,14 @@ class PlayController < ApplicationController
         # false offload
         gu1.add_extra_card_or_penalty
         offload['is_correct'] = false
+        #TODO: bot_mem update for false offload (add extra card)
         message = "#{@current_user.name.titleize} FAILED SELF OFFLOAD on card ##{offloaded_card_index+1}"
       else
         gu1.cards[offloaded_card_index] = nil
         @game.used << offload_card
         @game.inplay.delete(offload_card)
         offload['is_correct'] = true
+        @game.bot_mem_update_self_offload(@current_user, offloaded_card_index)
         message = "#{@current_user.name.titleize} did SELF OFFLOAD on card ##{offloaded_card_index+1}"
       end
       gu1.save!
@@ -56,6 +58,7 @@ class PlayController < ApplicationController
       if Util.get_card_value(offload_card)[0] != Util.get_card_value(@game.used[-1])[0]
         gu1.add_extra_card_or_penalty
         offload['is_correct'] = false
+        #TODO: bot_mem update for false offload (add extra card)
         message = "#{@current_user.name.titleize} FAILED CROSS OFFLOAD on #{gu2.user.name.titleize}'s' card ##{offloaded_card_index+1}"
       else
         replaced_card = gu1.cards[replaced_card_index]
@@ -65,6 +68,7 @@ class PlayController < ApplicationController
         @game.inplay.delete(offload_card)
         @game.used << offload_card
         offload['is_correct'] = true
+        @game.bot_mem_update_cross_offload(@current_user, gu2.user, offloaded_card_index, replaced_card_index)
         message = "#{@current_user.name.titleize} did CROSS OFFLOAD on #{gu2.user.name.titleize}'s' card ##{offloaded_card_index+1} and replaced with their card ##{replaced_card_index=1}"
       end
       gu1.save!
@@ -93,6 +97,7 @@ class PlayController < ApplicationController
     @game.counter += 1
     play.save!
 
+
     if powerplay['event'] == SWAP_CARDS
       gu1 = @game.game_users.find_by_user_id(powerplay['player1_id'])
       gu2 = @game.game_users.find_by_user_id(powerplay['player2_id'])
@@ -104,6 +109,7 @@ class PlayController < ApplicationController
       gu2.cards[card2_index] = replace_card1
       gu1.save!
       gu2.save!
+      #TODO: bot_mem update for swap cards
       ActionCable.server.broadcast(@game.channel, {message: "#{@current_user.name.titleize} SWAPPED #{gu1.user.name.titleize}'s card ##{powerplay['card1_index'].to_i} with #{gu2.user.name.titleize}'s card ##{powerplay['card2_index'].to_i}", type: POWERPLAY, counter: @game.counter})
       render json: { message: 'swapped cards successfully', timeout: @game.timeout }, status: 200
     elsif powerplay['event'] == VIEW_SELF

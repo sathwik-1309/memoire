@@ -1,7 +1,7 @@
 class Game < ApplicationRecord
   has_many :game_users
-  has_many :plays
   has_many :game_bots
+  has_many :plays
 
   after_save :execute_on_stage_change
 
@@ -117,7 +117,18 @@ class Game < ApplicationRecord
   end
 
   def self.random_shuffle(cards)
-    return cards.shuffle
+    cards.shuffle
+  end
+
+  def layout_memory_init
+    arr = []
+    self.play_order.map do |player_id|
+      arr << {
+        'player_id' => player_id,
+        'cards' => (0..3).map { |index| { 'seen' => false, 'index' => index } }
+      }
+    end
+    arr
   end
 
   def create_game_users(players)
@@ -133,7 +144,7 @@ class Game < ApplicationRecord
             'self' => Util.card_memory_init,
             'other' => Util.card_memory_init,
           },
-          'layout' => gu.layout_memory_init,
+          'layout' => self.layout_memory_init,
         }
       else
         gu = GameUser.new
@@ -206,6 +217,9 @@ class Game < ApplicationRecord
       play.card_draw['replaced_card'] = new_card
       self.inplay.delete(discarded_card)
       self.inplay << new_card
+
+      self.bot_mem_update_discard(user, event['discarded_card_index'].to_i)
+
       message = "#{user.name.titleize} discarded their card ##{event['discarded_card_index'].to_i+1} !"
     end
     self.used << discarded_card
@@ -220,6 +234,7 @@ class Game < ApplicationRecord
     self.counter += 1
     self.save!
     play.save!
+
     ActionCable.server.broadcast(self.channel, {message: message, type: DOR, counter: self.counter})
 
     if self.stage == POWERPLAY
@@ -388,6 +403,35 @@ class Game < ApplicationRecord
   def bot_actions_offload
     self.game_bots.each do |game_bot|
       MyWorker.perform_async('trigger_bot_offloads', {'game_bot_id' => game_bot.id})
+    end
+  end
+
+  # bot memory updates
+  def bot_mem_update_discard(user, index)
+    self.game_bots.where.not(user_id: user.id).each do |game_bot|
+      game_bot.update_others_unknown(user, index)
+      game_bot.save!
+    end
+  end
+
+  def bot_mem_update_self_offload(user, index)
+    self.game_bots.where.not(user_id: user.id).each do |game_bot|
+      game_bot.update_other_self_offload(user, index)
+      game_bot.save!
+    end
+  end
+
+  def bot_mem_update_cross_offload(user1, user2, offload_index, replace_index)
+    self.game_bots.where.not(user_id: user1.id).each do |game_bot|
+      game_bot.update_other_cross_offload(user1, user2, offload_index, replace_index)
+      game_bot.save!
+    end
+  end
+
+  def bot_mem_update_swap_cards(user1, user2, card1_index, card2_index)
+    self.game_bots.each do |game_bot|
+      game_bot.update_swap_cards(user1, user2, card1_index, card2_index)
+      game_bot.save!
     end
   end
 

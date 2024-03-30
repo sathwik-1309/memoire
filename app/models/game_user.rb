@@ -31,16 +31,4 @@ class GameUser < ApplicationRecord
     self.game.inplay << new_card
   end
 
-  def layout_memory_init
-    arr = []
-    self.game.play_order.map do |player_id|
-      arr << {
-        'player_id' => player_id,
-        'cards' => (0..3).map { |index| { 'seen' => false, 'index' => index } }
-      }
-    end
-    arr
-  end
-
-
 end

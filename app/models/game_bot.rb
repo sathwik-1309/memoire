@@ -160,10 +160,6 @@ class GameBot < GameUser
     end
   end
 
-  def update_swap_info(card1_hash, card2_hash)
-    #TODO:
-  end
-
   def update_other_self_offload(user, index)
     layout = self.meta['memory']['layout'].find{|hash| hash['player_id'] == user.id}['cards']
     offloaded_card = layout[index]
@@ -201,6 +197,65 @@ class GameBot < GameUser
       layout2['cards'][offloaded_card_index] = {'seen'=> false, 'index'=> offloaded_card_index}
     end
     layout1['cards'][replaced_card_index] = nil
+  end
+
+  def update_swap_cards(user1, user2, card1_index, card2_index)
+    layout1 = self.meta['memory']['layout'].find{|hash| hash['player_id'] == user1.id}['cards']
+    layout2 = self.meta['memory']['layout'].find{|hash| hash['player_id'] == user2.id}['cards']
+    card1 = layout1[card1_index]
+    card2 = layout2[card2_index]
+    if card1['seen'] and card2['seen']
+      layout2[card2_index] = {'seen'=>true, 'value'=>card1['value'], 'index'=>card2_index}
+      layout1[card1_index] = {'seen'=>true, 'value'=>card2['value'], 'index'=>card1_index}
+    elsif card1['seen']
+      layout2[card2_index] = {'seen'=>true, 'value'=>card1['value'], 'index'=>card2_index}
+      layout1[card1_index] = {'seen'=>false, 'index'=>card1_index}
+    elsif card2['seen']
+      layout2[card2_index] = {'seen'=>false, 'index'=>card2_index}
+      layout1[card1_index] = {'seen'=>true, 'value'=>card2['value'], 'index'=>card1_index}
+    end
+
+    card_mem = self.meta['memory']['cards']
+    card1_value = Util.get_card_number(card1['value']) if card1['seen']
+    card2_value = Util.get_card_number(card2['value']) if card2['seen']
+
+    if user1.id == self.user_id and user2.id == self.user_id
+      if card1['seen']
+        card_mem['self'][card1_value].delete({'index'=>card1_index})
+        card_mem['self'][card1_value] << {'index'=>card2_index}
+      end
+      if card2['seen']
+        card_mem['self'][card2_value].delete({'index'=>card2_index})
+        card_mem['self'][card2_value] << {'index'=>card1_index}
+      end
+    elsif user1.id == self.user_id
+      if card1['seen']
+        card_mem['self'][card1_value].delete({'index'=>card1_index})
+        card_mem['other'][card1_value] << {'index'=>card2_index, 'player_id'=>user2.id}
+      end
+      if card2['seen']
+        card_mem['other'][card2_value].delete({'index'=>card2_index, 'player_id'=>user2.id})
+        card_mem['self'][card2_value] << {'index'=>card1_index}
+      end
+    elsif user2.id == self.user_id
+      if card1['seen']
+        card_mem['other'][card1_value].delete({'index'=>card1_index, 'player_id'=>user1.id})
+        card_mem['self'][card1_value] << {'index'=>card2_index}
+      end
+      if card2['seen']
+        card_mem['self'][card2_value].delete({'index'=>card2_index})
+        card_mem['other'][card2_value] << {'index'=>card1_index, 'player_id'=>user1.id}
+      end
+    else
+      if card1['seen']
+        card_mem['other'][card1_value].delete({'index'=>card1_index, 'player_id'=>user1.id})
+        card_mem['other'][card1_value] << {'index'=>card2_index, 'player_id'=>user2.id}
+      end
+      if card2['seen']
+        card_mem['other'][card2_value].delete({'index'=>card2_index, 'player_id'=>user2.id})
+        card_mem['other'][card2_value] << {'index'=>card1_index, 'player_id'=>user1.id}
+      end
+    end
   end
 
 end

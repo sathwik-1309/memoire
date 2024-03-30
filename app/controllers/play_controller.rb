@@ -5,7 +5,7 @@ class PlayController < ApplicationController
 
   def index
     plays = @game.plays.map{|play| play.attributes.slice(:id, :game_id, :turn, :show, :card_draw, :offloads, :powerplay)}
-    render_200(nil,plays)
+    render json: plays, status: 200
   end
 
   def card_draw

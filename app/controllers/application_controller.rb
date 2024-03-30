@@ -11,7 +11,7 @@ class ApplicationController < ActionController::Base
         return
       end
     end
-    render_400("Unauthorized")
+    render json: {error: 'Unauthorized'}, status: 400
   end
 
   def set_current_user
@@ -25,23 +25,4 @@ class ApplicationController < ActionController::Base
     end
   end
 
-  def render_200(msg, resp = {})
-    resp["message"] = msg if msg.present?
-    render :json => resp, :status => 200
-  end
-
-  def render_201(msg, resp = {})
-    resp["message"] = msg if msg.present?
-    render :json => resp, :status => 201
-  end
-
-  def render_400(msg, resp = {})
-    resp["error"] = msg if msg.present?
-    render :json => resp, :status => 400
-  end
-
-  def render_404(msg, resp = {})
-    resp["error"] = msg if msg.present?
-    render :json => resp, :status => 404
-  end
 end

@@ -49,6 +49,7 @@ class GameUser < ApplicationRecord
       self.cards << new_card
     end
     self.game.inplay << new_card
+    nil_index
   end
 
 end

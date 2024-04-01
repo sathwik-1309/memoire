@@ -273,4 +273,14 @@ class GameBot < GameUser
     end
   end
 
+  def update_false_offload(user, nil_index)
+    layout = self.meta['memory']['layout'].find{|hash| hash['player_id'] == user.id}['cards']
+    if nil_index
+      layout[nil_index] = {'seen'=>false, 'index'=>nil_index}
+    else
+      cur_cards = layout.length
+      layout << {'seen'=> false, 'index'=>cur_cards}
+    end
+  end
+
 end

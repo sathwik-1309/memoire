@@ -9,28 +9,43 @@ class Game < ApplicationRecord
     if saved_change_to_stage?
       case self.stage
       when CARD_DRAW
-        CriticalWorker.perform_in(TIMEOUT_CD.seconds, 'card_draw_follow_up', {'game_id' => self.id, 'counter' => self.counter})
+        current_counter = self.counter
+        EventMachine.add_timer(TIMEOUT_CD) do
+          self.card_draw_follow_up if self.reload.status == ONGOING and current_counter == self.counter
+        end
       when DOR
-        CriticalWorker.perform_in(TIMEOUT_DOR.seconds, 'dor_follow_up', {'game_id' => self.id, 'counter' => self.counter})
+        current_counter = self.counter
+        EventMachine.add_timer(TIMEOUT_DOR) do
+          self.dor_follow_up if self.reload.status == ONGOING and current_counter == self.counter
+        end
       when POWERPLAY
-        CriticalWorker.perform_in(TIMEOUT_PP.seconds, 'powerplay_follow_up', {'game_id' => self.id, 'counter' => self.counter})
+        EventMachine.add_timer(TIMEOUT_PP) do
+          self.powerplay_follow_up if self.reload.status == ONGOING
+        end
       when OFFLOADS
-        CriticalWorker.perform_in(TIMEOUT_OFFLOAD.seconds, 'offloads_follow_up', {'game_id' => self.id, 'counter' => self.counter})
+        EventMachine.add_timer(TIMEOUT_OFFLOAD) do
+          self.offloads_follow_up if self.reload.status == ONGOING
+        end
       when FINISHED
-        CriticalWorker.perform_in(FINISHED_SLEEP.seconds, 'finished_follow_up', {'game_id' => self.id, 'counter' => self.counter})
+        EventMachine.add_timer(FINISHED_SLEEP) do
+          self.finished_follow_up if self.reload.status == ONGOING
+        end
       else
-        # do nothing
+        # eat 5 star do nothing
       end
     end
   end
 
   def card_draw_follow_up
-    ActionCable.server.broadcast(self.channel, {message: "#{User.find_by_id(self.turn).name.titleize} did not draw any card!", counter: self.counter+1, type: CARD_DRAW})
     self.turn = self.next_turn_player_id(self.turn)
     self.timeout = Time.now.utc + TIMEOUT_CD.seconds
     self.counter += 1
     self.save!
-    CriticalWorker.perform_in(TIMEOUT_CD.seconds, 'card_draw_follow_up', {'game_id' => self.id, 'counter' => self.counter})
+    ActionCable.server.broadcast(self.channel, {message: "#{User.find_by_id(self.turn).name.titleize} did not draw any card!", counter: self.counter+1, type: CARD_DRAW})
+    current_counter = self.counter
+    EventMachine.add_timer(TIMEOUT_CD) do
+      self.card_draw_follow_up if self.reload.status == ONGOING and current_counter == self.counter
+    end
     MyWorker.perform_in(Util.random_wait(CARD_DRAW).seconds, 'bot_actions_card_draw', {'game_id' => self.id})
   end
 

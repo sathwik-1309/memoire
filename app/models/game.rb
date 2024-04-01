@@ -423,6 +423,13 @@ class Game < ApplicationRecord
     end
   end
 
+  def bot_mem_false_offload(user, nil_index)
+    self.game_bots.each do |game_bot|
+      game_bot.update_false_offload(user, nil_index)
+      game_bot.save!
+    end
+  end
+
   def bot_mem_update_cross_offload(user1, user2, offload_index, replace_index)
     self.game_bots.where.not(user_id: user1.id).each do |game_bot|
       game_bot.update_other_cross_offload(user1, user2, offload_index, replace_index)

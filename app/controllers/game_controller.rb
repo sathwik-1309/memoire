@@ -17,7 +17,7 @@ class GameController < ApplicationController
 
   def create
     players = User.where(id: filter_params[:player_ids])
-    render json: { error: "Must send at least 1 valid user" }, status: :bad_request and return unless players.present?
+    render_400("Must send at least 1 valid user") and return unless players.present?
 
     if players.length < 4
       bots = Util.pick_n_random_items(Bot.all, 4-players.length)
@@ -44,13 +44,13 @@ class GameController < ApplicationController
       @game.create_game_users(players)
       render json: { message: "game created", game: { id: @game.id, players: players.map { |player| { id: player.id, name: player.name } } } }, status: :created
     else
-      render json: { error: "Game allows 3-4 players only" }, status: :bad_request
+      render_400("Game allows 3-4 players only")
     end
   end
 
   def details
     @game = Game.find_by_id(params[:id])
-    render json: { error: 'Game not found' }, status: 404 and return if @game.nil?
+    render_404('Game not found') and return if @game.nil?
     render json: {
       id: @game.id,
       players: @game.game_users.map do |gu|
@@ -67,7 +67,7 @@ class GameController < ApplicationController
       inplay: @game.inplay,
       used: @game.used,
       status: @game.status
-    }, status: :ok
+    }, status: 200
   end
 
   # def online_games
@@ -109,7 +109,7 @@ class GameController < ApplicationController
 
   def user_play
     game = @game_user.game
-    render json: { error: "Game is dead" }, status: 400 and return if game.dead?
+    render_400("Game is dead") and return if game.dead?
 
     hash = game.attributes.slice('stage', 'play_order', 'timeout', 'status', 'turn')
     unless game.started?
@@ -129,6 +129,9 @@ class GameController < ApplicationController
     if game.turn == @current_user.id
       play = game.current_play
       hash['your_turn'] = true
+      if @game_user.cards.filter{|card| card.present?}.length <= 3
+        hash['can_call_show'] = true
+      end
       case game.stage
       when DOR
         hash['card_drawn'] = play.card_draw['card_drawn']
@@ -166,8 +169,7 @@ class GameController < ApplicationController
   end
 
   def view_initial
-    return render json: { error: "Already viewed 2 cards" }, status: 400 if @game_user.view_count >= 2
-
+    render_400("Already viewed 2 cards") and return if @game_user.view_count >= 2
     @game_user.increment!(:view_count)
     render json: { card: @game_user.cards[filter_params[:card_index].to_i] }, status: 200
   end
@@ -182,18 +184,18 @@ class GameController < ApplicationController
       @game_user.game.finish_game('quit')
       ActionCable.server.broadcast(@game_user.game.channel, {"message": "game finished", "id": 4})
     end
-    render json: { message: "Quit from game" }, status: :ok
+    render json: { message: "Quit from game" }, status: 200
   end
 
   private
   def check_current_user
-    render json: { error: "Unauthorized" }, status: 400 if @current_user.nil?
+    render_400("Unauthorized") if @current_user.nil?
   end
 
   def check_game_user
     @game_user = @current_user.game_users.find_by_game_id(params[:id])
-    render json: { error: "Game not found" }, status: 404 and return if @game_user.nil?
-    render json: { error: "Already quit from game" }, status: 400 if @game_user.status == DEAD
+    render_404('Game not found') and return if @game_user.nil?
+    render_400("Already quit from game") if @game_user.status == DEAD
   end
 
   def filter_params

@@ -10,7 +10,7 @@ class PlayController < ApplicationController
   end
 
   def card_draw
-    render json: { error: "Can draw a card only in #{CARD_DRAW} stage" }, status: 400 and return if @game.stage != CARD_DRAW
+    render_400("Can draw a card only in #{CARD_DRAW} stage") and return if @game.stage != CARD_DRAW
     drawn_card = @game.pile.pop
     play = Play.create!(game_id: filter_params[:game_id], turn: @current_user.id, card_draw: {'card_drawn' => drawn_card})
     @game.stage = DOR
@@ -24,12 +24,12 @@ class PlayController < ApplicationController
   end
 
   def discard
-    render json: { error: "Can discard only in #{DOR} stage" }, status: 400 and return if @game.stage != DOR
+    render_400("Can discard only in #{DOR} stage") and return if @game.stage != DOR
     render json: @game.create_discard(@current_user, filter_params['event'], @game_user), status: 200
   end
 
   def offload
-    render json: { error: "Can offload only in #{OFFLOADS} stage" }, status: 400 and return if @game.stage != OFFLOADS
+    render_400("Can offload only in #{OFFLOADS} stage") and return if @game.stage != OFFLOADS
     play = @game.current_play
     offload = filter_params[:offload]
     gu1 = @game.game_users.find_by_user_id(@current_user.id)
@@ -41,9 +41,9 @@ class PlayController < ApplicationController
           offload_card = gu1.cards[offloaded_card_index]
           if Util.get_card_value(offload_card)[0] != Util.get_card_value(@game.used[-1])[0]
             # false offload
-            gu1.add_extra_card_or_penalty
+            nil_index = gu1.add_extra_card_or_penalty
             offload['is_correct'] = false
-            #TODO: bot_mem update for false offload (add extra card)
+            @game.bot_mem_false_offload(@current_user, nil_index)
             message = "#{@game_user.name.titleize} FAILED SELF OFFLOAD on card ##{offloaded_card_index+1}"
           else
             gu1.cards[offloaded_card_index] = nil
@@ -58,7 +58,7 @@ class PlayController < ApplicationController
           Lock.release_lock(lock_key)
         end
       else
-        render json: {error: 'Card was involved in another offload, Try again!'}, status: 400 and return
+        render_400('Card was involved in another offload, Try again!') and return
       end
 
     else
@@ -71,9 +71,9 @@ class PlayController < ApplicationController
           replaced_card_index = offload['replaced_card_index'].to_i
           offload_card = gu2.cards[offloaded_card_index]
           if Util.get_card_value(offload_card)[0] != Util.get_card_value(@game.used[-1])[0]
-            gu1.add_extra_card_or_penalty
+            nil_index = gu1.add_extra_card_or_penalty
             offload['is_correct'] = false
-            #TODO: bot_mem update for false offload (add extra card)
+            @game.bot_mem_false_offload(@current_user, nil_index)
             message = "#{gu1.name.titleize} FAILED CROSS OFFLOAD on #{gu2.name.titleize}'s' card ##{offloaded_card_index+1}"
           else
             replaced_card = gu1.cards[replaced_card_index]
@@ -91,7 +91,7 @@ class PlayController < ApplicationController
           Lock.release_locks(lock_key1, lock_key2)
         end
       else
-        render json: {error: 'Card was involved in another offload, Try again!'}, status: 400 and return
+        render_400('Card was involved in another offload, Try again!') and return
       end
     end
     offload['player1_id'] = @current_user.id
@@ -106,12 +106,12 @@ class PlayController < ApplicationController
   end
 
   def powerplay
-    render json: { error: "Can access powerplay only in #{POWERPLAY} stage" }, status: 400 and return if @game.stage != POWERPLAY
+    render_400("Can access powerplay only in #{POWERPLAY} stage") and return if @game.stage != POWERPLAY
     play = @game.current_play
     powerplay = filter_params[:powerplay]
 
-    render json: { error: "Powerplay type not same" }, status: 400 and return if play.powerplay_type != powerplay['event']
-    render json: { error: "Powerplay already used for this play" }, status: 400 and return if play.powerplay and play.powerplay['used']
+    render_400("Powerplay type not same") and return if play.powerplay_type != powerplay['event']
+    render_400("Powerplay already used for this play") and return if play.powerplay and play.powerplay['used']
 
     play.powerplay = powerplay
     play.powerplay['used'] = true
@@ -148,8 +148,8 @@ class PlayController < ApplicationController
   end
 
   def showcards
-    render json: { error: "Cannot Show after drawing card" }, status: 400 and return if @game.stage != CARD_DRAW
-    render json: { error: "Cannot Show with 4 or more cards" }, status: 400 and return if GameUser.find_by(game_id: @game.id, user_id: @current_user.id).cards.filter{|card| card.present?}.length >= 4
+    render_400("Cannot Show after drawing card") and return if @game.stage != CARD_DRAW
+    render_400("Cannot Show with 4 or more cards") and return if GameUser.find_by(game_id: @game.id, user_id: @current_user.id).cards.filter{|card| card.present?}.length >= 4
 
     @game.finish_game('showcards', @current_user)
     ActionCable.server.broadcast(@game.channel, {"stage": FINISHED, "id": 10})
@@ -161,17 +161,17 @@ class PlayController < ApplicationController
   def check_game
     @game = @current_user.games.find { |game| game.id == params[:game_id].to_i }
     return if @game.present?
-    render json: { error: "Game not found" }, status: 404
+    render_404("Game not found")
   end
 
   def check_turn
     return if @current_user.id == @game.turn
-    render json: { error: "Can only trigger on your turn" }, status: 400
+    render_400("Can only trigger on your turn")
   end
 
   def set_game_user
     @game_user = @game.game_users.find_by_user_id(@current_user.id)
-    render json: { error: "Not part of this game" }, status: 400 if @game_user.nil?
+    render_400("Not part of this game") if @game_user.nil?
   end
 
   def filter_params

@@ -32,6 +32,10 @@ class GameUser < ApplicationRecord
     self.cards.length == 6 and self.cards.filter{|card| card.present? }.length == 6
   end
 
+  def get_lock_key(card_index)
+    "card_#{self.id}_#{card_index}"
+  end
+
   def add_extra_card_or_penalty
     if self.offload_penalty?
       self.points += 5

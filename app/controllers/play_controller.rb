@@ -34,45 +34,65 @@ class PlayController < ApplicationController
     offload = filter_params[:offload]
     gu1 = @game.game_users.find_by_user_id(@current_user.id)
     if offload['type'] == SELF_OFFLOAD
-      offloaded_card_index = offload['offloaded_card_index'].to_i
-      offload_card = gu1.cards[offloaded_card_index]
-      if Util.get_card_value(offload_card)[0] != Util.get_card_value(@game.used[-1])[0]
-        # false offload
-        gu1.add_extra_card_or_penalty
-        offload['is_correct'] = false
-        #TODO: bot_mem update for false offload (add extra card)
-        message = "#{@game_user.name.titleize} FAILED SELF OFFLOAD on card ##{offloaded_card_index+1}"
+      lock_key = gu1.get_lock_key(offload['offloaded_card_index'])
+      if Lock.acquire_lock(lock_key, 5)
+        begin
+          offloaded_card_index = offload['offloaded_card_index'].to_i
+          offload_card = gu1.cards[offloaded_card_index]
+          if Util.get_card_value(offload_card)[0] != Util.get_card_value(@game.used[-1])[0]
+            # false offload
+            gu1.add_extra_card_or_penalty
+            offload['is_correct'] = false
+            #TODO: bot_mem update for false offload (add extra card)
+            message = "#{@game_user.name.titleize} FAILED SELF OFFLOAD on card ##{offloaded_card_index+1}"
+          else
+            gu1.cards[offloaded_card_index] = nil
+            @game.used << offload_card
+            @game.inplay.delete(offload_card)
+            offload['is_correct'] = true
+            @game.bot_mem_update_self_offload(@current_user, offloaded_card_index)
+            message = "#{@game_user.name.titleize} did SELF OFFLOAD on card ##{offloaded_card_index+1}"
+          end
+          gu1.save!
+        ensure
+          Lock.release_lock(lock_key)
+        end
       else
-        gu1.cards[offloaded_card_index] = nil
-        @game.used << offload_card
-        @game.inplay.delete(offload_card)
-        offload['is_correct'] = true
-        @game.bot_mem_update_self_offload(@current_user, offloaded_card_index)
-        message = "#{@game_user.name.titleize} did SELF OFFLOAD on card ##{offloaded_card_index+1}"
+        render json: {error: 'Card was involved in another offload, Try again!'}, status: 400 and return
       end
-      gu1.save!
+
     else
-      offloaded_card_index = offload['offloaded_card_index'].to_i
-      replaced_card_index = offload['replaced_card_index'].to_i
       gu2 = @game.game_users.find_by_user_id(offload['player2_id'])
-      offload_card = gu2.cards[offloaded_card_index]
-      if Util.get_card_value(offload_card)[0] != Util.get_card_value(@game.used[-1])[0]
-        gu1.add_extra_card_or_penalty
-        offload['is_correct'] = false
-        #TODO: bot_mem update for false offload (add extra card)
-        message = "#{gu1.name.titleize} FAILED CROSS OFFLOAD on #{gu2.name.titleize}'s' card ##{offloaded_card_index+1}"
+      lock_key1 = gu2.get_lock_key(offload['offloaded_card_index'])
+      lock_key2 = gu1.get_lock_key(offload['replaced_card_index'])
+      if Lock.acquire_locks(lock_key1, lock_key2, 5)
+        begin
+          offloaded_card_index = offload['offloaded_card_index'].to_i
+          replaced_card_index = offload['replaced_card_index'].to_i
+          offload_card = gu2.cards[offloaded_card_index]
+          if Util.get_card_value(offload_card)[0] != Util.get_card_value(@game.used[-1])[0]
+            gu1.add_extra_card_or_penalty
+            offload['is_correct'] = false
+            #TODO: bot_mem update for false offload (add extra card)
+            message = "#{gu1.name.titleize} FAILED CROSS OFFLOAD on #{gu2.name.titleize}'s' card ##{offloaded_card_index+1}"
+          else
+            replaced_card = gu1.cards[replaced_card_index]
+            gu1.cards[replaced_card_index] = nil
+            gu2.cards[offloaded_card_index] = replaced_card
+            gu2.save!
+            @game.inplay.delete(offload_card)
+            @game.used << offload_card
+            offload['is_correct'] = true
+            @game.bot_mem_update_cross_offload(@current_user, gu2.user, offloaded_card_index, replaced_card_index)
+            message = "#{gu1.name.titleize} did CROSS OFFLOAD on #{gu2.name.titleize}'s' card ##{offloaded_card_index+1} and replaced with their card ##{replaced_card_index+1}"
+          end
+          gu1.save!
+        ensure
+          Lock.release_locks(lock_key1, lock_key2)
+        end
       else
-        replaced_card = gu1.cards[replaced_card_index]
-        gu1.cards[replaced_card_index] = nil
-        gu2.cards[offloaded_card_index] = replaced_card
-        gu2.save!
-        @game.inplay.delete(offload_card)
-        @game.used << offload_card
-        offload['is_correct'] = true
-        @game.bot_mem_update_cross_offload(@current_user, gu2.user, offloaded_card_index, replaced_card_index)
-        message = "#{gu1.name.titleize} did CROSS OFFLOAD on #{gu2.name.titleize}'s' card ##{offloaded_card_index+1} and replaced with their card ##{replaced_card_index+1}"
+        render json: {error: 'Card was involved in another offload, Try again!'}, status: 400 and return
       end
-      gu1.save!
     end
     offload['player1_id'] = @current_user.id
     @game.finish_game('clean_up') if offload['is_correct'] and gu1.cards.filter{|card| card.present?}.length == 0

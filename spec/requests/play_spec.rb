@@ -147,8 +147,8 @@ RSpec.describe PlayController, type: :controller do
         'layout' => @game.layout_memory_init
       }
       @game_user = create(:game_user, user: @user, game: @game, status: GAME_USER_IS_PLAYING, cards: ['A ♣', 'Q ♣', '3 ♣', '2 ♣'])
-      @game_bot1 = create(:game_bot, user: @bot1, game: @game, status: GAME_USER_IS_PLAYING, meta: {'memory'=> @memory})
-      @game_bot2 = create(:game_bot, user: @bot2, game: @game, status: GAME_USER_IS_PLAYING, meta: {'memory'=> @memory})
+      @game_bot1 = create(:game_bot, user: @bot1, game: @game, status: GAME_USER_IS_PLAYING, meta: {'memory'=> @memory, 'fake_name' => Faker::Name.name})
+      @game_bot2 = create(:game_bot, user: @bot2, game: @game, status: GAME_USER_IS_PLAYING, meta: {'memory'=> @memory, 'fake_name' => Faker::Name.name})
       @play = create(:play, game_id: @game.id)
     end
 
@@ -250,8 +250,8 @@ RSpec.describe PlayController, type: :controller do
         'layout' => @game.layout_memory_init
       }
       @game_user = create(:game_user, user: @user, game: @game, status: GAME_USER_IS_PLAYING, cards: ['A ♣', 'Q ♣', '3 ♣', '2 ♣'])
-      @game_bot1 = create(:game_bot, user: @bot1, game: @game, status: GAME_USER_IS_PLAYING, cards: ['2 ♣', '4 ♣', '9 ♣', '10 ♣'], meta: {'memory'=> @memory})
-      @game_bot2 = create(:game_bot, user: @bot2, game: @game, status: GAME_USER_IS_PLAYING, meta: {'memory'=> @memory})
+      @game_bot1 = create(:game_bot, user: @bot1, game: @game, status: GAME_USER_IS_PLAYING, cards: ['2 ♣', '4 ♣', '9 ♣', '10 ♣'], meta: {'memory'=> @memory, 'fake_name'=> Faker::Name.name})
+      @game_bot2 = create(:game_bot, user: @bot2, game: @game, status: GAME_USER_IS_PLAYING, meta: {'memory'=> @memory, 'fake_name'=> Faker::Name.name})
       @play = create(:play, game_id: @game.id, card_draw: {'card_drawn'=> '7 ♥'})
     end
 

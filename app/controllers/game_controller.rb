@@ -158,10 +158,9 @@ class GameController < ApplicationController
       end
       game.timeout = Time.now.utc + TIMEOUT_IV.seconds
       game.save!
-      # puts "Block 1 game timeout: #{game.timeout}"
-      # puts "Block 1 enqueued at time #{Time.now.utc + TIMEOUT_IV.seconds}"
-      CriticalWorker.perform_in(TIMEOUT_IV.seconds, 'move_to_card_draw', {'game_id' => game.id})
-      # puts "Block 1 after enqueue time #{Time.now.utc + TIMEOUT_IV.seconds}"
+      EventMachine.add_timer(TIMEOUT_IV) do
+        game.move_to_card_draw
+      end
       ActionCable.server.broadcast(game.channel, {message: "game started"})
       MyWorker.perform_in(1.second, 'bot_actions_initial_view', {'game_id' => game.id})
     end

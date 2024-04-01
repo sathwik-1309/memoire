@@ -1,6 +1,5 @@
 :verbose: false
 :concurrency: 25
 :queues:
-  - critical
   - default
 :logfile: log/sidekiq.log

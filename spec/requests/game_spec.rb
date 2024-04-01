@@ -544,7 +544,7 @@ RSpec.describe GameController, type: :controller do
                                      'name' => @user3.name,
                                      'user_status'=> FINISHED,
                                      'cards' => ["6 ♣", "3 ♣", nil, "8 ♣"]}])
-        expect(res['leaderboard']).to eq([{'name' => @user1.name, 'player_id' => @user1.id, 'finished_at'=>1, 'points'=>9},
+        expect(res['leaderboard']).to eq([{'name' => @user1.name, 'player_id' => @user1.id, 'finished_at'=>1, 'points'=>9, 'yours'=>true},
                                           {'name' => @user2.name, 'player_id' => @user2.id, 'finished_at'=>2, 'points'=>25},
                                           {'name' => @user3.name, 'player_id' => @user3.id, 'finished_at'=>3, 'points'=>51}])
       end

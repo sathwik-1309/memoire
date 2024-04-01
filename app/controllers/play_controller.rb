@@ -2,6 +2,7 @@ class PlayController < ApplicationController
   before_action :check_current_user
   before_action :check_game
   before_action :check_turn, except: [:index, :offload]
+  before_action :set_game_user
 
   def index
     plays = @game.plays.map{|play| play.attributes.slice(:id, :game_id, :turn, :show, :card_draw, :offloads, :powerplay)}
@@ -17,14 +18,14 @@ class PlayController < ApplicationController
     @game.timeout = Time.now.utc + TIMEOUT_DOR.seconds
     @game.counter += 1
     @game.save!
-    ActionCable.server.broadcast(@game.channel, {message: "#{@current_user.name.titleize} drew a card!", type: CARD_DRAW, counter: @game.counter})
+    ActionCable.server.broadcast(@game.channel, {message: "#{@game_user.name.titleize} drew a card!", type: CARD_DRAW, counter: @game.counter})
     MyWorker.perform_in(Util.random_wait(DOR).seconds, 'bot_actions_discard', {'game_id' => @game.id, 'card_drawn' => drawn_card})
     render json: { card_drawn: drawn_card, timeout: @game.timeout, stage: @game.stage, }, status: 200
   end
 
   def discard
     render json: { error: "Can discard only in #{DOR} stage" }, status: 400 and return if @game.stage != DOR
-    render json: @game.create_discard(@current_user, filter_params['event']), status: 200
+    render json: @game.create_discard(@current_user, filter_params['event'], @game_user), status: 200
   end
 
   def offload
@@ -40,14 +41,14 @@ class PlayController < ApplicationController
         gu1.add_extra_card_or_penalty
         offload['is_correct'] = false
         #TODO: bot_mem update for false offload (add extra card)
-        message = "#{@current_user.name.titleize} FAILED SELF OFFLOAD on card ##{offloaded_card_index+1}"
+        message = "#{@game_user.name.titleize} FAILED SELF OFFLOAD on card ##{offloaded_card_index+1}"
       else
         gu1.cards[offloaded_card_index] = nil
         @game.used << offload_card
         @game.inplay.delete(offload_card)
         offload['is_correct'] = true
         @game.bot_mem_update_self_offload(@current_user, offloaded_card_index)
-        message = "#{@current_user.name.titleize} did SELF OFFLOAD on card ##{offloaded_card_index+1}"
+        message = "#{@game_user.name.titleize} did SELF OFFLOAD on card ##{offloaded_card_index+1}"
       end
       gu1.save!
     else
@@ -59,7 +60,7 @@ class PlayController < ApplicationController
         gu1.add_extra_card_or_penalty
         offload['is_correct'] = false
         #TODO: bot_mem update for false offload (add extra card)
-        message = "#{@current_user.name.titleize} FAILED CROSS OFFLOAD on #{gu2.user.name.titleize}'s' card ##{offloaded_card_index+1}"
+        message = "#{gu1.name.titleize} FAILED CROSS OFFLOAD on #{gu2.name.titleize}'s' card ##{offloaded_card_index+1}"
       else
         replaced_card = gu1.cards[replaced_card_index]
         gu1.cards[replaced_card_index] = nil
@@ -69,7 +70,7 @@ class PlayController < ApplicationController
         @game.used << offload_card
         offload['is_correct'] = true
         @game.bot_mem_update_cross_offload(@current_user, gu2.user, offloaded_card_index, replaced_card_index)
-        message = "#{@current_user.name.titleize} did CROSS OFFLOAD on #{gu2.user.name.titleize}'s' card ##{offloaded_card_index+1} and replaced with their card ##{replaced_card_index=1}"
+        message = "#{gu1.name.titleize} did CROSS OFFLOAD on #{gu2.name.titleize}'s' card ##{offloaded_card_index+1} and replaced with their card ##{replaced_card_index+1}"
       end
       gu1.save!
     end
@@ -110,17 +111,17 @@ class PlayController < ApplicationController
       gu1.save!
       gu2.save!
       @game.bot_mem_update_swap_cards(gu1.user, gu2.user, card1_index, card2_index)
-      ActionCable.server.broadcast(@game.channel, {message: "#{@current_user.name.titleize} SWAPPED #{gu1.user.name.titleize}'s card ##{powerplay['card1_index'].to_i} with #{gu2.user.name.titleize}'s card ##{powerplay['card2_index'].to_i}", type: POWERPLAY, counter: @game.counter})
+      ActionCable.server.broadcast(@game.channel, {message: "#{@game_user.name.titleize} SWAPPED #{gu1.name.titleize}'s card ##{powerplay['card1_index'].to_i} with #{gu2.name.titleize}'s card ##{powerplay['card2_index'].to_i}", type: POWERPLAY, counter: @game.counter})
       render json: { message: 'swapped cards successfully', timeout: @game.timeout }, status: 200
     elsif powerplay['event'] == VIEW_SELF
       gu1 = @game.game_users.find_by_user_id(@game.turn)
       view_card = gu1.cards[powerplay['view_card_index'].to_i]
-      ActionCable.server.broadcast(@game.channel, {message: "#{@current_user.name.titleize} VIEWED their card ##{powerplay['view_card_index'].to_i}", type: POWERPLAY, counter: @game.counter})
+      ActionCable.server.broadcast(@game.channel, {message: "#{@game_user.name.titleize} VIEWED their card ##{powerplay['view_card_index'].to_i}", type: POWERPLAY, counter: @game.counter})
       render json: { card: view_card, timeout: @game.timeout }, status: 200
     else
       gu2 = @game.game_users.find_by_user_id(powerplay['player_id'])
       view_card = gu2.cards[powerplay['view_card_index'].to_i]
-      ActionCable.server.broadcast(@game.channel, {message: "#{@current_user.name.titleize} VIEWED #{gu2.user.name.titleize}'s card ##{powerplay['view_card_index'].to_i}", type: POWERPLAY, counter: @game.counter})
+      ActionCable.server.broadcast(@game.channel, {message: "#{@game_user.name.titleize} VIEWED #{gu2.name.titleize}'s card ##{powerplay['view_card_index'].to_i}", type: POWERPLAY, counter: @game.counter})
       render json: { card: view_card, timeout: @game.timeout }, status: 200
     end
 
@@ -146,6 +147,11 @@ class PlayController < ApplicationController
   def check_turn
     return if @current_user.id == @game.turn
     render json: { error: "Can only trigger on your turn" }, status: 400
+  end
+
+  def set_game_user
+    @game_user = @game.game_users.find_by_user_id(@current_user.id)
+    render json: { error: "Not part of this game" }, status: 400 if @game_user.nil?
   end
 
   def filter_params

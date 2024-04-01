@@ -44,7 +44,6 @@ gem 'rack-cors'
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem 'debug'
-  gem 'faker'
   gem 'parallel_tests', '~> 2.9.0'
   gem 'pry-byebug'
 end
@@ -72,3 +71,4 @@ gem 'oj'
 gem 'rake'
 gem 'rest-client'
 gem 'sidekiq', '~> 7.2.2'
+gem 'faker'

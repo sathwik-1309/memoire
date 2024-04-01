@@ -37,7 +37,7 @@ class Game < ApplicationRecord
   def dor_follow_up
     event = {}
     event['type'] = DISCARD
-    self.create_discard(User.find_by_id(self.turn), event)
+    self.create_discard(User.find_by_id(self.turn), event, self.game_users.find_by_user_id(self.turn))
   end
 
   def powerplay_follow_up
@@ -137,6 +137,7 @@ class Game < ApplicationRecord
     players.each do |player|
       if player.is_bot
         gu = GameBot.new
+        gu.fake_name = Faker::Internet.username.titleize.split(" ")[0].split(".")[0]
         gu.status = GAME_USER_WAITING
         gu.game_id = self.id
         gu.meta['memory'] = {
@@ -172,7 +173,7 @@ class Game < ApplicationRecord
       game_user = self.game_users.find{|gu1| gu1.user_id == self.play_order[(index+count)%total_players]}
       temp = {}
       temp['player_id'] = game_user.user_id
-      temp['name'] = game_user.user.name
+      temp['name'] = game_user.name
       temp['user_status'] = game_user.status
       if game_user.status != GAME_USER_QUIT
         if self.finished?
@@ -201,7 +202,7 @@ class Game < ApplicationRecord
     self.plays.last
   end
 
-  def create_discard(user, event)
+  def create_discard(user, event, game_user)
     play = self.current_play
     new_card = play.card_draw['card_drawn']
     if event['type'] == DISCARD
@@ -220,7 +221,7 @@ class Game < ApplicationRecord
 
       self.bot_mem_update_discard(user, event['discarded_card_index'].to_i)
 
-      message = "#{user.name.titleize} discarded their card ##{event['discarded_card_index'].to_i+1} !"
+      message = "#{game_user.name.titleize} discarded their card ##{event['discarded_card_index'].to_i+1} !"
     end
     self.used << discarded_card
     play.card_draw['event'] = event['type']
@@ -281,7 +282,8 @@ class Game < ApplicationRecord
       end
 
     end
-    self.meta['game_users_sorted'] = self.game_users_sorted.map{|gu| gu.user_id}
+    game = Game.find(self.id)
+    self.meta['game_users_sorted'] = game.game_users_sorted.map{|gu| gu.user_id}
     self.meta['finish_event'] = type
     self.timeout = nil
     self.counter += 1
@@ -294,7 +296,7 @@ class Game < ApplicationRecord
     self.meta['game_users_sorted'].each_with_index do |user_id, index|
       game_user = self.game_users.find_by_user_id(user_id)
       hash = {
-        'name' => game_user.user.name,
+        'name' => game_user.name,
         'player_id' => game_user.user_id,
         'finished_at' => index+1,
         'points' => game_user.points

@@ -56,7 +56,7 @@ class GameController < ApplicationController
       players: @game.game_users.map do |gu|
         {
           id: gu.user_id,
-          name: gu.user.name,
+          name: gu.name,
           cards: gu.cards
         }
       end,

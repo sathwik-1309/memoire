@@ -3,6 +3,21 @@ class GameBot < GameUser
   belongs_to :user
   belongs_to :game
 
+  attr_accessor :fake_name_cache
+
+  def name
+    # If fake_name_cache is not set, fetch it from meta
+    @fake_name_cache ||= self.meta['fake_name']
+  end
+
+  # Custom setter for fake_name
+  def fake_name=(value)
+    # Set fake_name_cache to the provided value
+    @fake_name_cache = value
+    # Also update the value in meta
+    self.meta['fake_name'] = value
+  end
+
   def update_self_seen(card, index)
     layout = self.meta['memory']['layout'].find{|hash| hash['player_id'] == self.user_id}
     layout['cards'][index] = Util.seen_card_memory(card, index)

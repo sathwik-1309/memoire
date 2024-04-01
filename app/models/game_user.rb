@@ -2,6 +2,22 @@ class GameUser < ApplicationRecord
   belongs_to :user
   belongs_to :game
 
+  attr_accessor :game_bot_cache
+
+  def game_bot
+    # If fake_name_cache is not set, fetch it from meta
+    @game_bot_cache ||= GameBot.find_by(user_id: self.user_id, game_id: self.game_id)
+  end
+
+  def game_bot=(value)
+    @game_bot_cache = value
+  end
+
+  def name
+    return self.game_bot.name if self.is_bot
+    self.user.name
+  end
+
   def count_cards
     self.cards.map do |card|
       if card.present? 

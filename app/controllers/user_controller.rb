@@ -10,7 +10,7 @@ class UserController < ApplicationController
 
   def create
     if @user.save
-      render json: @user.slice(:name, :username, :authentication_token), status: :created
+      render json: @user.slice(:name, :email, :authentication_token), status: :created
     else
       render json: @user.errors, status: :unprocessable_entity
     end
@@ -24,6 +24,6 @@ class UserController < ApplicationController
   end
 
   def user_params
-    params.permit(:name, :username)
+    params.permit(:name, :email)
   end
 end

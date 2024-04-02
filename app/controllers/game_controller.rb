@@ -28,7 +28,7 @@ class GameController < ApplicationController
     game = Game.create!(status: START_ACK,
                         pile: Game.new_pile,
                         play_order: players.map{|player| player.id},
-                        turn: players.play_order[0])
+                        turn: players[0].id)
     game.create_game_users(players)
     render json: {
       message: 'game created',

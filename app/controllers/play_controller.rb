@@ -1,4 +1,5 @@
 class PlayController < ApplicationController
+  before_action :set_current_user
   before_action :check_current_user
   before_action :check_game
   before_action :check_turn, except: [:index, :offload]
@@ -157,6 +158,10 @@ class PlayController < ApplicationController
   end
 
   private
+
+  def check_current_user
+    render_400("Unauthorized") if @current_user.nil?
+  end
 
   def check_game
     @game = @current_user.games.find { |game| game.id == params[:game_id].to_i }

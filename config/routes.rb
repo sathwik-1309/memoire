@@ -16,6 +16,10 @@ Rails.application.routes.draw do
     post '/create' => 'user#create'
   end
 
+  scope :lobby do
+    post '/join' => 'lobby#join'
+  end
+
   scope :games do
     get '/check' => 'game#check'
     get '/index' => 'game#index'

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2024_03_06_180728) do
+ActiveRecord::Schema[7.1].define(version: 2024_04_02_050631) do
   create_table "game_users", force: :cascade do |t|
     t.json "cards", default: []
     t.integer "game_id"
@@ -38,6 +38,16 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_06_180728) do
     t.datetime "timeout"
     t.integer "counter", default: 1
     t.json "meta", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "lobbies", force: :cascade do |t|
+    t.string "status", default: "new"
+    t.boolean "is_filled", default: false
+    t.json "players", default: []
+    t.integer "game_id"
+    t.datetime "timeout"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end

@@ -1,0 +1,29 @@
+version: '3'
+services:
+  rails:
+    image: memoire:1.0
+    command: >
+      /bin/sh -c "rails db:create && rails db:migrate && rails r lib/scripts/create_bots.rb && puma -C config/puma.rb"
+    environment:
+      RAILS_ENV: production
+      DISABLE_DATABASE_ENVIRONMENT_CHECK: 1
+      REDIS_URL_SIDEKIQ: redis://redis:6379/0
+      REDIS_URL_CACHE: redis://redis:6379/2
+      REDIS_URL_CABLE: redis://redis:6379/1
+    depends_on:
+      - redis
+    ports:
+      - "3000:3000"
+  sidekiq:
+    image: memoire:1.0
+    command: bundle exec sidekiq -c 2 -q low
+    environment:
+      RAILS_ENV: production
+      DISABLE_DATABASE_ENVIRONMENT_CHECK: 1
+      REDIS_URL_SIDEKIQ: redis://redis:6379/0
+      REDIS_URL_CACHE: redis://redis:6379/2
+      REDIS_URL_CABLE: redis://redis:6379/1
+    depends_on:
+      - redis
+  redis:
+    image: redis:latest

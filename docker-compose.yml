@@ -38,6 +38,8 @@ services:
       - redis
     ports:
       - "3000:3000"
+    volumes:
+      - ./config/master.key:/rails-api/config/master.key
 
   db:
     image: postgres:latest
@@ -48,7 +50,7 @@ services:
 
   redis:
     image: redis:latest
-    
+
   sidekiq:
     build: .
     command: bundle exec sidekiq -c 2 -q low

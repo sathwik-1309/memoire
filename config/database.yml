@@ -41,4 +41,4 @@ test:
 
 production:
   <<: *default
-  database: <%= ENV['POSTGRES_DB']%>
+  database: memorie_prod

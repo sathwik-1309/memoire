@@ -1,36 +1,10 @@
-# version: '3'
-# services:
-#   rails:
-#     image: memoire:1.0
-#     command: >
-#       /bin/sh -c "rails db:create && rails db:migrate && rails r lib/scripts/create_bots.rb && puma -C config/puma.rb"
-#     environment:
-#       RAILS_ENV: production
-#       DISABLE_DATABASE_ENVIRONMENT_CHECK: 1
-#       REDIS_URL_SIDEKIQ: redis://redis:6379/0
-#       REDIS_URL_CACHE: redis://redis:6379/2
-#       REDIS_URL_CABLE: redis://redis:6379/1
-#     depends_on:
-#       - redis
-#       - db
-#     ports:
-#       - "3000:3000"
-
-#   db:
-#     image: postgres:latest
-#     ports:
-#       - "5432:5432"
-#     environment:
-#       POSTGRES_DB: memorie_prod
-#       POSTGRES_USER: root
-#       POSTGRES_PASSWORD: password
 version: '3.8'
 
 services:
   rails:
     build: .
     command: >
-      /bin/sh -c "rails db:create && rails db:migrate && rails r lib/scripts/create_bots.rb && puma -C config/puma.rb"
+      /bin/sh -c "rails db:migrate && rails r lib/scripts/create_bots.rb && puma -C config/puma.rb"
     env_file:
       - config.env
     depends_on:
@@ -40,6 +14,7 @@ services:
       - "3000:3000"
     volumes:
       - ./config/master.key:/rails-api/config/master.key
+      - ./config/ssl:/rails-api/config/ssl
 
   db:
     image: postgres:latest
@@ -53,8 +28,13 @@ services:
 
   sidekiq:
     build: .
-    command: bundle exec sidekiq -c 2 -q low
+    command: >
+      /bin/sh -c "sleep 20 && bundle exec sidekiq -C config/sidekiq.yml"
     env_file:
       - config.env
     depends_on:
       - redis
+      - rails
+    volumes:
+      - ./config/master.key:/rails-api/config/master.key
+      - ./config/ssl:/rails-api/config/ssl
